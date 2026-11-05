@@ -12,15 +12,17 @@
     #printArea { display: block !important; }
     @page { margin: 1.5cm; }
   }
+  /* Animasi Sidebar Mobile */
+  #sidebar { transition: transform 0.3s ease-in-out; }
 </style>
 </head>
-<body class="bg-gray-100 text-gray-800">
+<body class="bg-gray-100 text-gray-800 overflow-x-hidden">
 
 <!-- ================= LOGIN ================= -->
 <div id="loginScreen" class="min-h-screen flex items-center justify-center p-4">
   <form id="loginForm" class="bg-white p-8 rounded-xl shadow-md w-full max-w-sm">
     <h1 class="text-2xl font-bold mb-1">Hotel Admin</h1>
-    <p class="text-sm text-gray-500 mb-6">Masuk untuk mengelola pesanan (Google Sheets)</p>
+    <p class="text-sm text-gray-500 mb-6">Masuk untuk mengelola pesanan</p>
     <input id="loginEmail" type="email" placeholder="Email admin" class="border p-2 w-full mb-2 rounded" required>
     <input id="loginPass" type="password" placeholder="Password" class="border p-2 w-full mb-3 rounded" required>
     <button class="bg-blue-600 hover:bg-blue-700 text-white w-full p-2 rounded font-medium">Masuk</button>
@@ -30,53 +32,73 @@
 </div>
 
 <!-- ================= APP ================= -->
-<div id="app" class="hidden">
+<div id="app" class="hidden flex flex-col md:flex-row min-h-screen">
   
-  <!-- BAR PENGINGAT TIMER -->
-  <div id="reminderBar" class="hidden bg-yellow-100 border-b border-yellow-300 text-yellow-800 px-4 py-2 text-sm flex justify-between items-center shadow-sm sticky top-0 z-40">
-    <div id="reminderText" class="font-medium"></div>
-    <button onclick="document.getElementById('reminderBar').classList.add('hidden')" class="text-xs font-bold underline hover:text-yellow-900">Tutup</button>
+  <!-- TOP BAR (Hanya muncul di Mobile/Tablet) -->
+  <div class="md:hidden bg-slate-800 text-white p-4 flex justify-between items-center sticky top-0 z-50">
+    <h2 class="text-lg font-bold">🏨 Hotel Admin</h2>
+    <button onclick="toggleSidebar()" class="p-2 border border-slate-600 rounded">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+    </button>
   </div>
 
-  <div class="flex min-h-screen">
-    <!-- Sidebar -->
-    <aside class="w-60 bg-slate-800 text-white p-4 flex flex-col h-screen sticky top-0">
-      <h2 class="text-lg font-bold mb-6">🏨 Hotel Admin</h2>
-      <nav class="space-y-1 flex-1">
-        <a href="#" data-nav="dashboard" class="nav-link block px-3 py-2 rounded hover:bg-slate-700">Dashboard</a>
-        <a href="#" data-nav="bookings"  class="nav-link block px-3 py-2 rounded hover:bg-slate-700">Pesanan</a>
-        <a href="#" data-nav="invoices"  class="nav-link block px-3 py-2 rounded hover:bg-slate-700">Invoice</a>
-        <a href="#" data-nav="payments"  class="nav-link block px-3 py-2 rounded hover:bg-slate-700">Tanda Terima</a>
-        <a href="#" data-nav="brokers"   class="nav-link block px-3 py-2 rounded hover:bg-slate-700">Broker Hotel</a>
-        <a href="#" data-nav="customers" class="nav-link block px-3 py-2 rounded hover:bg-slate-700">Customer</a>
-      </nav>
-      <button onclick="logout()" class="mt-4 text-sm bg-red-600 hover:bg-red-700 p-2 rounded">Logout</button>
-    </aside>
+  <!-- SIDEBAR -->
+  <aside id="sidebar" class="bg-slate-800 text-white w-64 p-4 flex flex-col h-screen fixed md:sticky top-0 z-50 transform -translate-x-full md:translate-x-0">
+    <div class="hidden md:block mb-6">
+      <h2 class="text-lg font-bold">🏨 Hotel Admin</h2>
+    </div>
+    <nav class="space-y-1 flex-1 overflow-y-auto mt-10 md:mt-0">
+      <a href="#" data-nav="dashboard" class="nav-link block px-3 py-2 rounded hover:bg-slate-700">Dashboard</a>
+      <a href="#" data-nav="bookings"  class="nav-link block px-3 py-2 rounded hover:bg-slate-700">Pesanan</a>
+      <a href="#" data-nav="invoices"  class="nav-link block px-3 py-2 rounded hover:bg-slate-700">Invoice</a>
+      <a href="#" data-nav="payments"  class="nav-link block px-3 py-2 rounded hover:bg-slate-700">Tanda Terima</a>
+      <a href="#" data-nav="brokers"   class="nav-link block px-3 py-2 rounded hover:bg-slate-700">Broker Hotel</a>
+      <a href="#" data-nav="customers" class="nav-link block px-3 py-2 rounded hover:bg-slate-700">Customer</a>
+    </nav>
+    <button onclick="logout()" class="mt-4 text-sm bg-red-600 hover:bg-red-700 p-2 rounded">Logout</button>
+  </aside>
 
-    <!-- Main Content -->
-    <main class="flex-1 p-6 overflow-auto h-screen">
+  <!-- OVERLAY (Latar gelap saat sidebar terbuka di mobile) -->
+  <div id="overlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/50 z-40 hidden md:hidden"></div>
+
+  <!-- MAIN CONTENT -->
+  <main class="flex-1 flex flex-col h-screen overflow-hidden">
+    
+    <!-- BAR PENGINGAT -->
+    <div id="reminderBar" class="hidden bg-yellow-100 border-b border-yellow-300 text-yellow-800 px-4 py-2 text-sm flex justify-between items-center shadow-sm z-30">
+      <div id="reminderText" class="font-medium truncate pr-2"></div>
+      <button onclick="document.getElementById('reminderBar').classList.add('hidden')" class="text-xs font-bold underline hover:text-yellow-900 shrink-0">Tutup</button>
+    </div>
+
+    <div class="p-4 md:p-6 overflow-y-auto flex-1">
       <!-- DASHBOARD -->
       <section id="page-dashboard" class="page hidden">
         <h1 class="text-2xl font-bold mb-4">Dashboard</h1>
-        <div id="dashStats" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <p class="text-gray-500">Memuat data...</p>
+        <div id="dashStats" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <p class="text-gray-500 col-span-full">Memuat data...</p>
         </div>
       </section>
 
       <!-- BOOKINGS -->
       <section id="page-bookings" class="page hidden">
         <h1 class="text-2xl font-bold mb-4">Pesanan Hotel</h1>
-        <form id="formBooking" class="bg-white p-4 rounded shadow mb-4 grid grid-cols-1 md:grid-cols-3 gap-2">
-          <select name="customer_id" id="selCustomer" class="border p-2 rounded" required></select>
-          <select name="broker_id" id="selBroker" class="border p-2 rounded"></select>
-          <input name="hotel_nama" placeholder="Nama hotel" class="border p-2 rounded" required>
-          <input name="check_in" type="date" class="border p-2 rounded" required>
-          <input name="check_out" type="date" class="border p-2 rounded" required>
-          <input name="jumlah_kamar" type="number" min="1" value="1" placeholder="Jumlah kamar" class="border p-2 rounded">
-          <input name="jumlah_tamu" type="number" min="1" value="1" placeholder="Jumlah tamu" class="border p-2 rounded">
-          <input name="total" type="number" min="0" placeholder="Total (Rp)" class="border p-2 rounded" required>
-          <input name="catatan" placeholder="Catatan (opsional)" class="border p-2 rounded">
-          <button class="md:col-span-3 bg-blue-600 hover:bg-blue-700 text-white rounded p-2 font-medium">Tambah Pesanan</button>
+        <form id="formBooking" class="bg-white p-4 rounded shadow mb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          <select name="customer_id" id="selCustomer" class="border p-2 rounded w-full" required></select>
+          <select name="broker_id" id="selBroker" class="border p-2 rounded w-full"></select>
+          <input name="hotel_nama" placeholder="Nama hotel" class="border p-2 rounded w-full" required>
+          <div class="flex flex-col">
+            <label class="text-xs text-gray-500 mb-1">Check In</label>
+            <input name="check_in" type="date" class="border p-2 rounded w-full" required>
+          </div>
+          <div class="flex flex-col">
+            <label class="text-xs text-gray-500 mb-1">Check Out</label>
+            <input name="check_out" type="date" class="border p-2 rounded w-full" required>
+          </div>
+          <input name="jumlah_kamar" type="number" min="1" value="1" placeholder="Jumlah kamar" class="border p-2 rounded w-full">
+          <input name="jumlah_tamu" type="number" min="1" value="1" placeholder="Jumlah tamu" class="border p-2 rounded w-full">
+          <input name="total" type="number" min="0" placeholder="Total (Rp)" class="border p-2 rounded w-full" required>
+          <input name="catatan" placeholder="Catatan (opsional)" class="border p-2 rounded w-full">
+          <button class="md:col-span-2 lg:col-span-3 bg-blue-600 hover:bg-blue-700 text-white rounded p-2 font-medium">Tambah Pesanan</button>
         </form>
         <div id="tableBookings" class="bg-white rounded shadow p-4 overflow-x-auto"></div>
       </section>
@@ -93,12 +115,12 @@
         <div id="tablePayments" class="bg-white rounded shadow p-4 overflow-x-auto"></div>
       </section>
 
-      <!-- BROKERS (TANPA KOMISI) -->
+      <!-- BROKERS -->
       <section id="page-brokers" class="page hidden">
         <h1 class="text-2xl font-bold mb-4">Broker Hotel</h1>
-        <form id="formBroker" class="bg-white p-4 rounded shadow mb-4 grid grid-cols-1 md:grid-cols-2 gap-2">
-          <input name="nama" placeholder="Nama broker" class="border p-2 rounded" required>
-          <input name="kontak" placeholder="Kontak / telepon" class="border p-2 rounded">
+        <form id="formBroker" class="bg-white p-4 rounded shadow mb-6 grid grid-cols-1 md:grid-cols-2 gap-3">
+          <input name="nama" placeholder="Nama broker" class="border p-2 rounded w-full" required>
+          <input name="kontak" placeholder="Kontak / telepon" class="border p-2 rounded w-full">
           <button class="md:col-span-2 bg-blue-600 hover:bg-blue-700 text-white rounded p-2 font-medium">Tambah Broker</button>
         </form>
         <div id="tableBrokers" class="bg-white rounded shadow p-4 overflow-x-auto"></div>
@@ -107,20 +129,20 @@
       <!-- CUSTOMERS -->
       <section id="page-customers" class="page hidden">
         <h1 class="text-2xl font-bold mb-4">Customer</h1>
-        <form id="formCustomer" class="bg-white p-4 rounded shadow mb-4 grid grid-cols-1 md:grid-cols-3 gap-2">
-          <input name="nama" placeholder="Nama customer" class="border p-2 rounded" required>
-          <input name="telepon" placeholder="Telepon" class="border p-2 rounded">
-          <input name="email" type="email" placeholder="Email" class="border p-2 rounded">
+        <form id="formCustomer" class="bg-white p-4 rounded shadow mb-6 grid grid-cols-1 md:grid-cols-3 gap-3">
+          <input name="nama" placeholder="Nama customer" class="border p-2 rounded w-full" required>
+          <input name="telepon" placeholder="Telepon" class="border p-2 rounded w-full">
+          <input name="email" type="email" placeholder="Email" class="border p-2 rounded w-full">
           <button class="md:col-span-3 bg-blue-600 hover:bg-blue-700 text-white rounded p-2 font-medium">Tambah Customer</button>
         </form>
         <div id="tableCustomers" class="bg-white rounded shadow p-4 overflow-x-auto"></div>
       </section>
-    </main>
-  </div>
+    </div>
+  </main>
 </div>
 
 <!-- ================= MODAL ================= -->
-<div id="modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+<div id="modal" class="hidden fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
   <div id="modalContent" class="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-5"></div>
 </div>
 
@@ -129,13 +151,11 @@
 
 <!-- ================= SCRIPT ================= -->
 <script>
-/* =========================================================
-   KONFIGURASI — URL DARI GOOGLE APPS SCRIPT
-   ========================================================= */
-const API_URL = 'https://script.google.com/macros/s/AKfycbwZwSt2tVt6F5tkAvPcqpQ8hlkU3hIAC9SONWFmrk-GIS8_E8swH5GbPfv8kp-TzVzWgg/exec';
+/* GANTI URL DI BAWAH INI */
+const API_URL = 'MASUKKAN_URL_WEB_APP_APPS_SCRIPT_ANDA_DISINI';
 
 /* =========================================================
-   HELPERS
+   HELPERS & API
    ========================================================= */
 const rp = n => 'Rp ' + (Number(n)||0).toLocaleString('id-ID');
 const fmtDate = d => d ? new Date(d).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}) : '-';
@@ -147,12 +167,18 @@ const api = {
   get: async (sheetName) => {
     try {
       const res = await fetch(`${API_URL}?action=read&sheet=${sheetName}`);
-      const json = await res.json();
-      if (json.status === 'error') throw new Error(json.message);
-      return json.data;
+      const text = await res.text(); // Ambil text dulu untuk menghindari error JSON parse
+      try {
+        const json = JSON.parse(text);
+        if (json.status === 'error') throw new Error(json.message);
+        return json.data;
+      } catch (e) {
+        console.error("Respons bukan JSON:", text);
+        throw new Error("Format data dari server tidak valid.");
+      }
     } catch (err) {
       console.error('API GET Error:', err.message);
-      return [];
+      return []; // Kembalikan array kosong agar UI tidak crash
     }
   },
   post: async (sheetName, action, data) => {
@@ -161,7 +187,7 @@ const api = {
       const res = await fetch(API_URL, {
         method: 'POST',
         body: JSON.stringify(payload),
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' } // Wajib text/plain untuk Apps Script
       });
       const json = await res.json();
       if (json.status === 'error') throw new Error(json.message);
@@ -173,33 +199,39 @@ const api = {
   }
 };
 
-async function genNoInvoice() {
-  const d = new Date();
-  const p = `INV/${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/`;
-  const invs = await api.get('Invoices');
-  return p + String(invs.length + 1).padStart(4, '0');
+/* =========================================================
+   UI & SIDEBAR MOBILE
+   ========================================================= */
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('overlay');
+  sidebar.classList.toggle('-translate-x-full');
+  overlay.classList.toggle('hidden');
 }
 
-async function genNoKuitansi() {
-  const d = new Date();
-  const p = `KW/${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/`;
-  const pays = await api.get('Payments');
-  return p + String(pays.length + 1).padStart(4, '0');
+function nav(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
+  document.getElementById('page-' + page).classList.remove('hidden');
+  document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('bg-slate-700'));
+  document.querySelector(`[data-nav="${page}"]`)?.classList.add('bg-slate-700');
+  
+  // Tutup sidebar otomatis di mobile setelah memilih menu
+  if(window.innerWidth < 768) toggleSidebar();
+  
+  loadPage(page);
 }
 
-function showModal(html) {
-  document.getElementById('modalContent').innerHTML = html;
-  document.getElementById('modal').classList.remove('hidden');
-}
-function closeModal() {
-  document.getElementById('modal').classList.add('hidden');
-  document.getElementById('modalContent').innerHTML = '';
-}
-function printContent(html) {
-  const area = document.getElementById('printArea');
-  area.innerHTML = html;
-  window.print();
-  setTimeout(() => { area.innerHTML = ''; }, 300);
+document.querySelectorAll('.nav-link').forEach(a => {
+  a.onclick = e => { e.preventDefault(); nav(a.dataset.nav); };
+});
+
+async function loadPage(page) {
+  if (page === 'dashboard') return loadDashboard();
+  if (page === 'bookings')  return loadBookings();
+  if (page === 'invoices')  return loadInvoices();
+  if (page === 'payments')  return loadPayments();
+  if (page === 'brokers')   return loadBrokers();
+  if (page === 'customers') return loadCustomers();
 }
 
 /* =========================================================
@@ -210,7 +242,7 @@ let reminderInterval;
 function startReminderTimer() {
   checkReminders();
   if (reminderInterval) clearInterval(reminderInterval);
-  reminderInterval = setInterval(checkReminders, 60000); // Cek tiap 1 menit
+  reminderInterval = setInterval(checkReminders, 60000); 
 }
 
 async function checkReminders() {
@@ -218,13 +250,10 @@ async function checkReminders() {
   try {
     const [invoices, bookings] = await Promise.all([api.get('Invoices'), api.get('Bookings')]);
     
-    // Hitung Tagihan Konsumen
     const unpaidInvoices = invoices.filter(i => i.status !== 'paid').length;
-    
-    // Hitung Komisi Broker Belum Dibayar
     let unpaidBrokers = 0;
+    
     bookings.forEach(b => {
-      // Syarat: Punya broker, status booking paid, dan broker_paid belum TRUE
       if (b.broker_id && b.status === 'paid' && b.broker_paid !== true && b.broker_paid !== 'TRUE') {
         unpaidBrokers++;
       }
@@ -234,11 +263,11 @@ async function checkReminders() {
     const text = document.getElementById('reminderText');
     let messages = [];
 
-    if (unpaidInvoices > 0) messages.push(`<b>${unpaidInvoices} Invoice</b> belum lunas (Tagih Konsumen)`);
-    if (unpaidBrokers > 0) messages.push(`<b>${unpaidBrokers} Pesanan</b> komisi brokernya belum dibayar`);
+    if (unpaidInvoices > 0) messages.push(`<b>${unpaidInvoices} Invoice</b> belum lunas`);
+    if (unpaidBrokers > 0) messages.push(`<b>${unpaidBrokers} Komisi Broker</b> belum dibayar`);
 
     if (messages.length > 0) {
-      text.innerHTML = '🔔 Pengingat: ' + messages.join(' &nbsp;|&nbsp; ');
+      text.innerHTML = '🔔 Pengingat: ' + messages.join(' | ');
       bar.classList.remove('hidden');
     } else {
       bar.classList.add('hidden');
@@ -275,34 +304,10 @@ function logout() {
 if (localStorage.getItem('isLoggedIn') === 'true') showApp();
 
 /* =========================================================
-   NAVIGASI & LOAD DATA
-   ========================================================= */
-function nav(page) {
-  document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
-  document.getElementById('page-' + page).classList.remove('hidden');
-  document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('bg-slate-700'));
-  document.querySelector(`[data-nav="${page}"]`)?.classList.add('bg-slate-700');
-  loadPage(page);
-}
-
-document.querySelectorAll('.nav-link').forEach(a => {
-  a.onclick = e => { e.preventDefault(); nav(a.dataset.nav); };
-});
-
-async function loadPage(page) {
-  if (page === 'dashboard') return loadDashboard();
-  if (page === 'bookings')  return loadBookings();
-  if (page === 'invoices')  return loadInvoices();
-  if (page === 'payments')  return loadPayments();
-  if (page === 'brokers')   return loadBrokers();
-  if (page === 'customers') return loadCustomers();
-}
-
-/* =========================================================
-   DASHBOARD, BROKERS (TANPA KOMISI), CUSTOMERS
+   DASHBOARD, BROKERS, CUSTOMERS
    ========================================================= */
 async function loadDashboard() {
-  document.getElementById('dashStats').innerHTML = '<p class="text-gray-500 col-span-4">Memuat data...</p>';
+  document.getElementById('dashStats').innerHTML = '<p class="text-gray-500 col-span-full">Memuat data...</p>';
   const bookings = await api.get('Bookings');
   const invoices = await api.get('Invoices');
   const payments = await api.get('Payments');
@@ -322,13 +327,13 @@ async function loadDashboard() {
 async function loadBrokers() {
   const data = await api.get('Brokers');
   const rows = data.map(b => `
-    <tr class="border-b">
+    <tr class="border-b text-sm">
       <td class="p-2">${esc(b.nama)}</td>
       <td>${esc(b.kontak)}</td>
-      <td class="text-right"><button onclick="hapusData('Brokers', '${b.id}', loadBrokers)" class="text-red-600 hover:underline text-sm">Hapus</button></td>
+      <td class="text-right"><button onclick="hapusData('Brokers', '${b.id}', loadBrokers)" class="text-red-600 hover:underline">Hapus</button></td>
     </tr>`).join('');
   document.getElementById('tableBrokers').innerHTML = `
-    <table class="w-full text-sm">
+    <table class="w-full">
       <thead class="text-left text-gray-500 border-b"><tr><th class="p-2">Nama</th><th>Kontak</th><th></th></tr></thead>
       <tbody>${rows || '<tr><td colspan="3" class="p-2 text-gray-500">Belum ada data.</td></tr>'}</tbody>
     </table>`;
@@ -344,14 +349,14 @@ document.getElementById('formBroker').onsubmit = async e => {
 async function loadCustomers() {
   const data = await api.get('Customers');
   const rows = data.map(c => `
-    <tr class="border-b">
+    <tr class="border-b text-sm">
       <td class="p-2">${esc(c.nama)}</td>
       <td>${esc(c.telepon)}</td>
       <td>${esc(c.email)}</td>
-      <td class="text-right"><button onclick="hapusData('Customers', '${c.id}', loadCustomers)" class="text-red-600 hover:underline text-sm">Hapus</button></td>
+      <td class="text-right"><button onclick="hapusData('Customers', '${c.id}', loadCustomers)" class="text-red-600 hover:underline">Hapus</button></td>
     </tr>`).join('');
   document.getElementById('tableCustomers').innerHTML = `
-    <table class="w-full text-sm">
+    <table class="w-full">
       <thead class="text-left text-gray-500 border-b"><tr><th class="p-2">Nama</th><th>Telepon</th><th>Email</th><th></th></tr></thead>
       <tbody>${rows || '<tr><td colspan="4" class="p-2 text-gray-500">Belum ada data.</td></tr>'}</tbody>
     </table>`;
@@ -371,7 +376,7 @@ async function hapusData(sheet, id, callback) {
 }
 
 /* =========================================================
-   BOOKINGS (DENGAN FITUR BAYAR KOMISI BROKER)
+   BOOKINGS
    ========================================================= */
 async function loadBookings() {
   const [customers, brokers, bookings] = await Promise.all([
@@ -386,8 +391,6 @@ async function loadBookings() {
   const rows = bookings.map(b => {
     const cust = customers.find(c => c.id === b.customer_id) || {};
     const brk = brokers.find(x => x.id === b.broker_id) || {};
-    
-    // Tombol Bayar Komisi muncul jika status booking sudah paid, ada broker, dan broker_paid belum TRUE
     const showPayBrokerBtn = b.broker_id && b.status === 'paid' && b.broker_paid !== true && b.broker_paid !== 'TRUE';
 
     return `
@@ -403,16 +406,16 @@ async function loadBookings() {
       <td>${rp(b.total)}</td>
       <td><span class="px-2 py-0.5 rounded text-xs ${b.status==='paid'?'bg-green-100 text-green-700':'bg-yellow-100 text-yellow-700'}">${b.status}</span></td>
       <td class="text-right whitespace-nowrap">
-        ${showPayBrokerBtn ? `<button onclick="bayarBroker('${b.id}')" class="bg-purple-100 hover:bg-purple-200 text-purple-700 px-2 py-1 rounded text-xs font-bold mr-2">Bayar Komisi</button>` : ''}
-        <button onclick="createInvoice('${b.id}')" class="text-blue-600 hover:underline text-xs">Buat Invoice</button>
-        <button onclick="hapusData('Bookings', '${b.id}', loadBookings)" class="text-red-600 hover:underline text-xs ml-2">Hapus</button>
+        ${showPayBrokerBtn ? `<button onclick="bayarBroker('${b.id}')" class="bg-purple-100 hover:bg-purple-200 text-purple-700 px-2 py-1 rounded text-xs font-bold mr-2 mb-1">Bayar Komisi</button>` : ''}
+        <button onclick="createInvoice('${b.id}')" class="text-blue-600 hover:underline text-xs mr-2">Buat Invoice</button>
+        <button onclick="hapusData('Bookings', '${b.id}', loadBookings)" class="text-red-600 hover:underline text-xs">Hapus</button>
       </td>
     </tr>`}).join('');
 
   document.getElementById('tableBookings').innerHTML = `
-    <table class="w-full">
+    <table class="w-full min-w-[800px]">
       <thead class="text-left text-gray-500 border-b text-xs">
-        <tr><th class="p-2">Kode</th><th>Customer</th><th>Hotel</th><th>Check In → Out</th><th>Kamar</th><th>Total</th><th>Status</th><th>Aksi</th></tr>
+        <tr><th class="p-2">Kode</th><th>Customer</th><th>Hotel</th><th>Tanggal</th><th>Kamar</th><th>Total</th><th>Status</th><th>Aksi</th></tr>
       </thead>
       <tbody>${rows || '<tr><td colspan="8" class="p-2 text-gray-500 text-sm">Belum ada pesanan.</td></tr>'}</tbody>
     </table>`;
@@ -435,8 +438,7 @@ document.getElementById('formBooking').onsubmit = async e => {
 async function bayarBroker(bookingId) {
   if (confirm('Apakah Anda sudah mentransfer komisi ke broker untuk pesanan ini?')) {
     await api.post('Bookings', 'update', { id: bookingId, broker_paid: true });
-    checkReminders(); // Hilangkan notifikasi
-    loadBookings();   // Refresh tabel
+    checkReminders(); loadBookings();
   }
 }
 
@@ -448,7 +450,10 @@ async function createInvoice(bookingId) {
   const b = bookings.find(x => x.id === bookingId);
   if (!b) return alert('Pesanan tidak ditemukan.');
 
-  const no = await genNoInvoice();
+  const d = new Date();
+  const p = `INV/${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/`;
+  const no = p + String(invoices.length + 1).padStart(4, '0');
+
   await api.post('Invoices', 'insert', {
     id: uuid(), no_invoice: no, booking_id: bookingId, 
     tanggal: today(), total: b.total, status: 'unpaid', created_at: new Date().toISOString()
@@ -476,13 +481,13 @@ async function loadInvoices() {
         <td>${rp(i.total)}</td>
         <td><span class="px-2 py-0.5 rounded text-xs ${i.status==='paid'?'bg-green-100 text-green-700':i.status==='partial'?'bg-blue-100 text-blue-700':'bg-red-100 text-red-700'}">${i.status}</span></td>
         <td class="text-right whitespace-nowrap">
-          <button onclick="printInvoice('${i.id}')" class="text-blue-600 hover:underline text-xs">Cetak</button>
-          ${i.status!=='paid' ? `<button onclick="openPaymentModal('${i.id}')" class="text-green-600 hover:underline text-xs ml-2">Catat Bayar</button>` : ''}
+          <button onclick="printInvoice('${i.id}')" class="text-blue-600 hover:underline text-xs mr-2">Cetak</button>
+          ${i.status!=='paid' ? `<button onclick="openPaymentModal('${i.id}')" class="text-green-600 hover:underline text-xs">Catat Bayar</button>` : ''}
         </td>
       </tr>`;
   }).join('');
   document.getElementById('tableInvoices').innerHTML = `
-    <table class="w-full">
+    <table class="w-full min-w-[700px]">
       <thead class="text-left text-gray-500 border-b text-xs"><tr><th class="p-2">No Invoice</th><th>Tanggal</th><th>Customer</th><th>Hotel</th><th>Total</th><th>Status</th><th>Aksi</th></tr></thead>
       <tbody>${rows || '<tr><td colspan="7" class="p-2 text-gray-500 text-sm">Belum ada invoice.</td></tr>'}</tbody>
     </table>`;
@@ -511,7 +516,10 @@ async function openPaymentModal(invoiceId) {
     e.preventDefault();
     const f = e.target;
     const jumlah = Number(f.jumlah.value);
-    const no = await genNoKuitansi();
+    
+    const d = new Date();
+    const p = `KW/${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/`;
+    const no = p + String(payments.length + 1).padStart(4, '0');
     
     await api.post('Payments', 'insert', { id: uuid(), no_kuitansi: no, invoice_id: invoiceId, tanggal: today(), jumlah: jumlah, metode: f.metode.value, created_at: new Date().toISOString() });
     
@@ -541,15 +549,30 @@ async function loadPayments() {
       <td class="text-right"><button onclick="printReceipt('${p.id}')" class="text-blue-600 hover:underline text-xs">Cetak</button></td>
     </tr>`}).join('');
   document.getElementById('tablePayments').innerHTML = `
-    <table class="w-full">
+    <table class="w-full min-w-[700px]">
       <thead class="text-left text-gray-500 border-b text-xs"><tr><th class="p-2">No Kuitansi</th><th>Tanggal</th><th>Invoice</th><th>Customer</th><th>Jumlah</th><th>Metode</th><th>Aksi</th></tr></thead>
       <tbody>${rows || '<tr><td colspan="7" class="p-2 text-gray-500 text-sm">Belum ada pembayaran.</td></tr>'}</tbody>
     </table>`;
 }
 
 /* =========================================================
-   PRINT FUNCTIONS
+   MODAL & PRINT
    ========================================================= */
+function showModal(html) {
+  document.getElementById('modalContent').innerHTML = html;
+  document.getElementById('modal').classList.remove('hidden');
+}
+function closeModal() {
+  document.getElementById('modal').classList.add('hidden');
+  document.getElementById('modalContent').innerHTML = '';
+}
+function printContent(html) {
+  const area = document.getElementById('printArea');
+  area.innerHTML = html;
+  window.print();
+  setTimeout(() => { area.innerHTML = ''; }, 300);
+}
+
 async function printInvoice(invoiceId) {
   const [invoices, bookings, customers, brokers] = await Promise.all([api.get('Invoices'), api.get('Bookings'), api.get('Customers'), api.get('Brokers')]);
   const i = invoices.find(x => x.id === invoiceId); if (!i) return;
