@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Hotel Admin — Neon Database</title>
+<title>Hotel Admin — Google Sheets DB</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
   #printArea { display: none; }
@@ -20,7 +20,7 @@
 <div id="loginScreen" class="min-h-screen flex items-center justify-center p-4">
   <form id="loginForm" class="bg-white p-8 rounded-xl shadow-md w-full max-w-sm">
     <h1 class="text-2xl font-bold mb-1">Hotel Admin</h1>
-    <p class="text-sm text-gray-500 mb-6">Masuk untuk mengelola pesanan (Neon DB)</p>
+    <p class="text-sm text-gray-500 mb-6">Masuk untuk mengelola pesanan (Google Sheets)</p>
     <input id="loginEmail" type="email" placeholder="Email admin" class="border p-2 w-full mb-2 rounded" required>
     <input id="loginPass" type="password" placeholder="Password" class="border p-2 w-full mb-3 rounded" required>
     <button class="bg-blue-600 hover:bg-blue-700 text-white w-full p-2 rounded font-medium">Masuk</button>
@@ -32,8 +32,8 @@
 <!-- ================= APP ================= -->
 <div id="app" class="hidden">
   
-  <!-- BAR PENGINGAT TIKER -->
-  <div id="reminderBar" class="hidden bg-yellow-100 border-b border-yellow-300 text-yellow-800 px-4 py-2 text-sm flex justify-between items-center shadow-sm">
+  <!-- BAR PENGINGAT TIMER -->
+  <div id="reminderBar" class="hidden bg-yellow-100 border-b border-yellow-300 text-yellow-800 px-4 py-2 text-sm flex justify-between items-center shadow-sm sticky top-0 z-40">
     <div id="reminderText" class="font-medium"></div>
     <button onclick="document.getElementById('reminderBar').classList.add('hidden')" class="text-xs font-bold underline hover:text-yellow-900">Tutup</button>
   </div>
@@ -76,7 +76,7 @@
           <input name="jumlah_tamu" type="number" min="1" value="1" placeholder="Jumlah tamu" class="border p-2 rounded">
           <input name="total" type="number" min="0" placeholder="Total (Rp)" class="border p-2 rounded" required>
           <input name="catatan" placeholder="Catatan (opsional)" class="border p-2 rounded">
-          <button class="md:col-span-3 bg-blue-600 text-white rounded p-2 font-medium hover:bg-blue-700">Tambah Pesanan</button>
+          <button class="md:col-span-3 bg-blue-600 hover:bg-blue-700 text-white rounded p-2 font-medium">Tambah Pesanan</button>
         </form>
         <div id="tableBookings" class="bg-white rounded shadow p-4 overflow-x-auto"></div>
       </section>
@@ -93,14 +93,13 @@
         <div id="tablePayments" class="bg-white rounded shadow p-4 overflow-x-auto"></div>
       </section>
 
-      <!-- BROKERS -->
+      <!-- BROKERS (TANPA KOMISI) -->
       <section id="page-brokers" class="page hidden">
         <h1 class="text-2xl font-bold mb-4">Broker Hotel</h1>
-        <form id="formBroker" class="bg-white p-4 rounded shadow mb-4 grid grid-cols-1 md:grid-cols-3 gap-2">
+        <form id="formBroker" class="bg-white p-4 rounded shadow mb-4 grid grid-cols-1 md:grid-cols-2 gap-2">
           <input name="nama" placeholder="Nama broker" class="border p-2 rounded" required>
           <input name="kontak" placeholder="Kontak / telepon" class="border p-2 rounded">
-          <input name="komisi_persen" type="number" step="0.01" placeholder="Komisi (%)" class="border p-2 rounded">
-          <button class="md:col-span-3 bg-blue-600 text-white rounded p-2 font-medium hover:bg-blue-700">Tambah Broker</button>
+          <button class="md:col-span-2 bg-blue-600 hover:bg-blue-700 text-white rounded p-2 font-medium">Tambah Broker</button>
         </form>
         <div id="tableBrokers" class="bg-white rounded shadow p-4 overflow-x-auto"></div>
       </section>
@@ -112,7 +111,7 @@
           <input name="nama" placeholder="Nama customer" class="border p-2 rounded" required>
           <input name="telepon" placeholder="Telepon" class="border p-2 rounded">
           <input name="email" type="email" placeholder="Email" class="border p-2 rounded">
-          <button class="md:col-span-3 bg-blue-600 text-white rounded p-2 font-medium hover:bg-blue-700">Tambah Customer</button>
+          <button class="md:col-span-3 bg-blue-600 hover:bg-blue-700 text-white rounded p-2 font-medium">Tambah Customer</button>
         </form>
         <div id="tableCustomers" class="bg-white rounded shadow p-4 overflow-x-auto"></div>
       </section>
@@ -131,12 +130,12 @@
 <!-- ================= SCRIPT ================= -->
 <script>
 /* =========================================================
-   KONFIGURASI — URL VERCEL ANDA
+   KONFIGURASI — URL DARI GOOGLE APPS SCRIPT
    ========================================================= */
-const API_URL = ' https://vercel.com/ceplak123-5275/api-hotel-neon/settings/environment-variables'; // <--- GANTI DENGAN URL VERCEL
+const API_URL = 'https://script.google.com/macros/s/AKfycbwnjos_5zVb2rR_0aN0f8pdC8iO9efSgxF-TAtuChKn/dev';
 
 /* =========================================================
-   HELPERS & API
+   HELPERS
    ========================================================= */
 const rp = n => 'Rp ' + (Number(n)||0).toLocaleString('id-ID');
 const fmtDate = d => d ? new Date(d).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}) : '-';
@@ -145,35 +144,24 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 const uuid = () => crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).substring(2);
 
 const api = {
-  get: async (tableName) => {
+  get: async (sheetName) => {
     try {
-      const table = tableName.toLowerCase();
-      const res = await fetch(`${API_URL}?action=read&table=${table}`);
+      const res = await fetch(`${API_URL}?action=read&sheet=${sheetName}`);
       const json = await res.json();
       if (json.status === 'error') throw new Error(json.message);
-      
-      // Bersihkan format tanggal dari Postgres (ISO ke YYYY-MM-DD)
-      return json.data.map(row => {
-        for (let key in row) {
-          if (row[key] instanceof Date || (typeof row[key] === 'string' && row[key].includes('T'))) {
-             row[key] = row[key].split('T')[0];
-          }
-        }
-        return row;
-      });
+      return json.data;
     } catch (err) {
       console.error('API GET Error:', err.message);
       return [];
     }
   },
-  post: async (tableName, action, data) => {
+  post: async (sheetName, action, data) => {
     try {
-      const table = tableName.toLowerCase();
-      const payload = { table, action, data };
+      const payload = { sheet: sheetName, action: action, data: data };
       const res = await fetch(API_URL, {
         method: 'POST',
         body: JSON.stringify(payload),
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' }
       });
       const json = await res.json();
       if (json.status === 'error') throw new Error(json.message);
@@ -188,14 +176,14 @@ const api = {
 async function genNoInvoice() {
   const d = new Date();
   const p = `INV/${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/`;
-  const invs = await api.get('invoices');
+  const invs = await api.get('Invoices');
   return p + String(invs.length + 1).padStart(4, '0');
 }
 
 async function genNoKuitansi() {
   const d = new Date();
   const p = `KW/${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/`;
-  const pays = await api.get('payments');
+  const pays = await api.get('Payments');
   return p + String(pays.length + 1).padStart(4, '0');
 }
 
@@ -228,7 +216,7 @@ function startReminderTimer() {
 async function checkReminders() {
   if (localStorage.getItem('isLoggedIn') !== 'true') return;
   try {
-    const [invoices, bookings] = await Promise.all([api.get('invoices'), api.get('bookings')]);
+    const [invoices, bookings] = await Promise.all([api.get('Invoices'), api.get('Bookings')]);
     
     // Hitung Tagihan Konsumen
     const unpaidInvoices = invoices.filter(i => i.status !== 'paid').length;
@@ -236,8 +224,8 @@ async function checkReminders() {
     // Hitung Komisi Broker Belum Dibayar
     let unpaidBrokers = 0;
     bookings.forEach(b => {
-      // Syarat: Ada broker, status booking paid, dan broker_paid masih false
-      if (b.broker_id && b.status === 'paid' && b.broker_paid !== true) {
+      // Syarat: Punya broker, status booking paid, dan broker_paid belum TRUE
+      if (b.broker_id && b.status === 'paid' && b.broker_paid !== true && b.broker_paid !== 'TRUE') {
         unpaidBrokers++;
       }
     });
@@ -247,7 +235,7 @@ async function checkReminders() {
     let messages = [];
 
     if (unpaidInvoices > 0) messages.push(`<b>${unpaidInvoices} Invoice</b> belum lunas (Tagih Konsumen)`);
-    if (unpaidBrokers > 0) messages.push(`<b>${unpaidBrokers} Komisi Broker</b> belum dibayar`);
+    if (unpaidBrokers > 0) messages.push(`<b>${unpaidBrokers} Pesanan</b> komisi brokernya belum dibayar`);
 
     if (messages.length > 0) {
       text.innerHTML = '🔔 Pengingat: ' + messages.join(' &nbsp;|&nbsp; ');
@@ -311,13 +299,13 @@ async function loadPage(page) {
 }
 
 /* =========================================================
-   DASHBOARD, BROKERS, CUSTOMERS
+   DASHBOARD, BROKERS (TANPA KOMISI), CUSTOMERS
    ========================================================= */
 async function loadDashboard() {
   document.getElementById('dashStats').innerHTML = '<p class="text-gray-500 col-span-4">Memuat data...</p>';
-  const bookings = await api.get('bookings');
-  const invoices = await api.get('invoices');
-  const payments = await api.get('payments');
+  const bookings = await api.get('Bookings');
+  const invoices = await api.get('Invoices');
+  const payments = await api.get('Payments');
 
   const totalInv = invoices.reduce((s,i) => s + Number(i.total || 0), 0);
   const totalPaid = payments.reduce((s,p) => s + Number(p.jumlah || 0), 0);
@@ -332,36 +320,35 @@ async function loadDashboard() {
 }
 
 async function loadBrokers() {
-  const data = await api.get('brokers');
+  const data = await api.get('Brokers');
   const rows = data.map(b => `
     <tr class="border-b">
       <td class="p-2">${esc(b.nama)}</td>
       <td>${esc(b.kontak)}</td>
-      <td>${b.komisi_persen||0}%</td>
-      <td class="text-right"><button onclick="hapusData('brokers', '${b.id}', loadBrokers)" class="text-red-600 hover:underline text-sm">Hapus</button></td>
+      <td class="text-right"><button onclick="hapusData('Brokers', '${b.id}', loadBrokers)" class="text-red-600 hover:underline text-sm">Hapus</button></td>
     </tr>`).join('');
   document.getElementById('tableBrokers').innerHTML = `
     <table class="w-full text-sm">
-      <thead class="text-left text-gray-500 border-b"><tr><th class="p-2">Nama</th><th>Kontak</th><th>Komisi</th><th></th></tr></thead>
-      <tbody>${rows || '<tr><td colspan="4" class="p-2 text-gray-500">Belum ada data.</td></tr>'}</tbody>
+      <thead class="text-left text-gray-500 border-b"><tr><th class="p-2">Nama</th><th>Kontak</th><th></th></tr></thead>
+      <tbody>${rows || '<tr><td colspan="3" class="p-2 text-gray-500">Belum ada data.</td></tr>'}</tbody>
     </table>`;
 }
 
 document.getElementById('formBroker').onsubmit = async e => {
   e.preventDefault();
   const f = e.target;
-  await api.post('brokers', 'insert', { id: uuid(), nama: f.nama.value, kontak: f.kontak.value, komisi_persen: f.komisi_persen.value });
+  await api.post('Brokers', 'insert', { id: uuid(), nama: f.nama.value, kontak: f.kontak.value, created_at: new Date().toISOString() });
   f.reset(); loadBrokers();
 };
 
 async function loadCustomers() {
-  const data = await api.get('customers');
+  const data = await api.get('Customers');
   const rows = data.map(c => `
     <tr class="border-b">
       <td class="p-2">${esc(c.nama)}</td>
       <td>${esc(c.telepon)}</td>
       <td>${esc(c.email)}</td>
-      <td class="text-right"><button onclick="hapusData('customers', '${c.id}', loadCustomers)" class="text-red-600 hover:underline text-sm">Hapus</button></td>
+      <td class="text-right"><button onclick="hapusData('Customers', '${c.id}', loadCustomers)" class="text-red-600 hover:underline text-sm">Hapus</button></td>
     </tr>`).join('');
   document.getElementById('tableCustomers').innerHTML = `
     <table class="w-full text-sm">
@@ -373,7 +360,7 @@ async function loadCustomers() {
 document.getElementById('formCustomer').onsubmit = async e => {
   e.preventDefault();
   const f = e.target;
-  await api.post('customers', 'insert', { id: uuid(), nama: f.nama.value, telepon: f.telepon.value, email: f.email.value });
+  await api.post('Customers', 'insert', { id: uuid(), nama: f.nama.value, telepon: f.telepon.value, email: f.email.value, created_at: new Date().toISOString() });
   f.reset(); loadCustomers();
 };
 
@@ -388,7 +375,7 @@ async function hapusData(sheet, id, callback) {
    ========================================================= */
 async function loadBookings() {
   const [customers, brokers, bookings] = await Promise.all([
-    api.get('customers'), api.get('brokers'), api.get('bookings')
+    api.get('Customers'), api.get('Brokers'), api.get('Bookings')
   ]);
 
   document.getElementById('selCustomer').innerHTML = '<option value="">-- Pilih Customer --</option>' +
@@ -400,8 +387,8 @@ async function loadBookings() {
     const cust = customers.find(c => c.id === b.customer_id) || {};
     const brk = brokers.find(x => x.id === b.broker_id) || {};
     
-    // Tampilkan tombol bayar komisi jika pesanan lunas tapi komisi belum dibayar
-    const showPayBrokerBtn = b.broker_id && b.status === 'paid' && b.broker_paid !== true;
+    // Tombol Bayar Komisi muncul jika status booking sudah paid, ada broker, dan broker_paid belum TRUE
+    const showPayBrokerBtn = b.broker_id && b.status === 'paid' && b.broker_paid !== true && b.broker_paid !== 'TRUE';
 
     return `
     <tr class="border-b text-sm hover:bg-gray-50">
@@ -416,9 +403,9 @@ async function loadBookings() {
       <td>${rp(b.total)}</td>
       <td><span class="px-2 py-0.5 rounded text-xs ${b.status==='paid'?'bg-green-100 text-green-700':'bg-yellow-100 text-yellow-700'}">${b.status}</span></td>
       <td class="text-right whitespace-nowrap">
-        ${showPayBrokerBtn ? `<button onclick="bayarBroker('${b.id}', ${brk.komisi_persen}, ${b.total})" class="bg-purple-100 hover:bg-purple-200 text-purple-700 px-2 py-1 rounded text-xs font-bold mr-2">Bayar Komisi</button>` : ''}
+        ${showPayBrokerBtn ? `<button onclick="bayarBroker('${b.id}')" class="bg-purple-100 hover:bg-purple-200 text-purple-700 px-2 py-1 rounded text-xs font-bold mr-2">Bayar Komisi</button>` : ''}
         <button onclick="createInvoice('${b.id}')" class="text-blue-600 hover:underline text-xs">Buat Invoice</button>
-        <button onclick="hapusData('bookings', '${b.id}', loadBookings)" class="text-red-600 hover:underline text-xs ml-2">Hapus</button>
+        <button onclick="hapusData('Bookings', '${b.id}', loadBookings)" class="text-red-600 hover:underline text-xs ml-2">Hapus</button>
       </td>
     </tr>`}).join('');
 
@@ -434,39 +421,39 @@ async function loadBookings() {
 document.getElementById('formBooking').onsubmit = async e => {
   e.preventDefault();
   const f = e.target;
-  await api.post('bookings', 'insert', {
+  await api.post('Bookings', 'insert', {
     id: uuid(), kode_booking: 'BK' + Date.now(), customer_id: f.customer_id.value,
     broker_id: f.broker_id.value || null, hotel_nama: f.hotel_nama.value,
     check_in: f.check_in.value, check_out: f.check_out.value,
     jumlah_kamar: f.jumlah_kamar.value, jumlah_tamu: f.jumlah_tamu.value,
-    total: f.total.value, status: 'pending', catatan: f.catatan.value, broker_paid: false
+    total: f.total.value, status: 'pending', catatan: f.catatan.value, 
+    broker_paid: false, created_at: new Date().toISOString()
   });
   f.reset(); loadBookings();
 };
 
-async function bayarBroker(bookingId, komisiPersen, total) {
-  const komisiNominal = total * (komisiPersen / 100);
-  if (confirm(`Apakah Anda sudah mentransfer komisi sebesar ${rp(komisiNominal)} ke broker?`)) {
-    await api.post('bookings', 'update', { id: bookingId, broker_paid: true });
+async function bayarBroker(bookingId) {
+  if (confirm('Apakah Anda sudah mentransfer komisi ke broker untuk pesanan ini?')) {
+    await api.post('Bookings', 'update', { id: bookingId, broker_paid: true });
     checkReminders(); // Hilangkan notifikasi
     loadBookings();   // Refresh tabel
   }
 }
 
 async function createInvoice(bookingId) {
-  const invoices = await api.get('invoices');
+  const invoices = await api.get('Invoices');
   if (invoices.find(i => i.booking_id === bookingId)) return alert('Invoice sudah dibuat!');
   
-  const bookings = await api.get('bookings');
+  const bookings = await api.get('Bookings');
   const b = bookings.find(x => x.id === bookingId);
   if (!b) return alert('Pesanan tidak ditemukan.');
 
   const no = await genNoInvoice();
-  await api.post('invoices', 'insert', {
+  await api.post('Invoices', 'insert', {
     id: uuid(), no_invoice: no, booking_id: bookingId, 
-    tanggal: today(), total: b.total, status: 'unpaid'
+    tanggal: today(), total: b.total, status: 'unpaid', created_at: new Date().toISOString()
   });
-  await api.post('bookings', 'update', { id: bookingId, status: 'invoiced' });
+  await api.post('Bookings', 'update', { id: bookingId, status: 'invoiced' });
   
   alert('Invoice berhasil dibuat: ' + no);
   nav('invoices');
@@ -476,7 +463,7 @@ async function createInvoice(bookingId) {
    INVOICES & PAYMENTS
    ========================================================= */
 async function loadInvoices() {
-  const [invoices, bookings, customers] = await Promise.all([api.get('invoices'), api.get('bookings'), api.get('customers')]);
+  const [invoices, bookings, customers] = await Promise.all([api.get('Invoices'), api.get('Bookings'), api.get('Customers')]);
   const rows = invoices.map(i => {
     const b = bookings.find(x => x.id === i.booking_id) || {};
     const c = customers.find(x => x.id === b.customer_id) || {};
@@ -502,7 +489,7 @@ async function loadInvoices() {
 }
 
 async function openPaymentModal(invoiceId) {
-  const [invoices, payments] = await Promise.all([api.get('invoices'), api.get('payments')]);
+  const [invoices, payments] = await Promise.all([api.get('Invoices'), api.get('Payments')]);
   const inv = invoices.find(x => x.id === invoiceId);
   if (!inv) return;
   const paid = payments.filter(p => p.invoice_id === invoiceId).reduce((s,p) => s + Number(p.jumlah), 0);
@@ -526,11 +513,11 @@ async function openPaymentModal(invoiceId) {
     const jumlah = Number(f.jumlah.value);
     const no = await genNoKuitansi();
     
-    await api.post('payments', 'insert', { id: uuid(), no_kuitansi: no, invoice_id: invoiceId, tanggal: today(), jumlah: jumlah, metode: f.metode.value });
+    await api.post('Payments', 'insert', { id: uuid(), no_kuitansi: no, invoice_id: invoiceId, tanggal: today(), jumlah: jumlah, metode: f.metode.value, created_at: new Date().toISOString() });
     
     const status = (paid + jumlah) >= Number(inv.total) ? 'paid' : 'partial';
-    await api.post('invoices', 'update', { id: invoiceId, status: status });
-    if (status === 'paid') await api.post('bookings', 'update', { id: inv.booking_id, status: 'paid' });
+    await api.post('Invoices', 'update', { id: invoiceId, status: status });
+    if (status === 'paid') await api.post('Bookings', 'update', { id: inv.booking_id, status: 'paid' });
 
     closeModal(); checkReminders(); loadPage('invoices');
     alert('Pembayaran tersimpan. No kuitansi: ' + no);
@@ -538,7 +525,7 @@ async function openPaymentModal(invoiceId) {
 }
 
 async function loadPayments() {
-  const [payments, invoices, bookings, customers] = await Promise.all([api.get('payments'), api.get('invoices'), api.get('bookings'), api.get('customers')]);
+  const [payments, invoices, bookings, customers] = await Promise.all([api.get('Payments'), api.get('Invoices'), api.get('Bookings'), api.get('Customers')]);
   const rows = payments.map(p => {
     const inv = invoices.find(x => x.id === p.invoice_id) || {};
     const b = bookings.find(x => x.id === inv.booking_id) || {};
@@ -564,7 +551,7 @@ async function loadPayments() {
    PRINT FUNCTIONS
    ========================================================= */
 async function printInvoice(invoiceId) {
-  const [invoices, bookings, customers, brokers] = await Promise.all([api.get('invoices'), api.get('bookings'), api.get('customers'), api.get('brokers')]);
+  const [invoices, bookings, customers, brokers] = await Promise.all([api.get('Invoices'), api.get('Bookings'), api.get('Customers'), api.get('Brokers')]);
   const i = invoices.find(x => x.id === invoiceId); if (!i) return;
   const b = bookings.find(x => x.id === i.booking_id) || {};
   const c = customers.find(x => x.id === b.customer_id) || {};
@@ -594,7 +581,7 @@ async function printInvoice(invoiceId) {
 }
 
 async function printReceipt(paymentId) {
-  const [payments, invoices, bookings, customers] = await Promise.all([api.get('payments'), api.get('invoices'), api.get('bookings'), api.get('customers')]);
+  const [payments, invoices, bookings, customers] = await Promise.all([api.get('Payments'), api.get('Invoices'), api.get('Bookings'), api.get('Customers')]);
   const p = payments.find(x => x.id === paymentId); if (!p) return;
   const inv = invoices.find(x => x.id === p.invoice_id) || {};
   const b = bookings.find(x => x.id === inv.booking_id) || {};
