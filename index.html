@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hotel Admin — Google Sheets DB</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  #printArea { display: none; }
+  @media print {
+    #loginScreen, #app, #modal { display: none !important; }
+    #printArea { display: block !important; }
+    @page { margin: 1.5cm; }
+  }
+</style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+<!-- ================= LOGIN ================= -->
+<div id="loginScreen" class="min-h-screen flex items-center justify-center p-4">
+  <form id="loginForm" class="bg-white p-8 rounded-xl shadow-md w-full max-w-sm">
+    <h1 class="text-2xl font-bold mb-1">Hotel Admin</h1>
+    <p class="text-sm text-gray-500 mb-6">Masuk untuk mengelola pesanan (Google Sheets)</p>
+    <input id="loginEmail" type="email" placeholder="Email admin" class="border p-2 w-full mb-2 rounded" required>
+    <input id="loginPass" type="password" placeholder="Password" class="border p-2 w-full mb-3 rounded" required>
+    <button class="bg-blue-600 hover:bg-blue-700 text-white w-full p-2 rounded font-medium">Masuk</button>
+    <p id="loginErr" class="text-red-500 text-sm mt-3"></p>
+    <div class="mt-4 text-xs text-gray-400 text-center">
+      Gunakan: admin@admin / admin123
+    </div>
+  </form>
+</div>
+
+<!-- ================= APP ================= -->
+<div id="app" class="hidden">
+  <div class="flex min-h-screen">
+    <!-- Sidebar -->
+    <aside class="w-60 bg-slate-800 text-white p-4 flex flex-col">
+      <h2 class="text-lg font-bold mb-6">🏨 Hotel Admin</h2>
+      <nav class="space-y-1 flex-1">
+        <a href="#" data-nav="dashboard" class="nav-link block px-3 py-2 rounded hover:bg-slate-700">Dashboard</a>
+        <a href="#" data-nav="bookings"  class="nav-link block px-3 py-2 rounded hover:bg-slate-700">Pesanan</a>
+        <a href="#" data-nav="invoices"  class="nav-link block px-3 py-2 rounded hover:bg-slate-700">Invoice</a>
+        <a href="#" data-nav="payments"  class="nav-link block px-3 py-2 rounded hover:bg-slate-700">Tanda Terima</a>
+        <a href="#" data-nav="brokers"   class="nav-link block px-3 py-2 rounded hover:bg-slate-700">Broker Hotel</a>
+        <a href="#" data-nav="customers" class="nav-link block px-3 py-2 rounded hover:bg-slate-700">Customer</a>
+      </nav>
+      <button onclick="logout()" class="mt-4 text-sm bg-red-600 hover:bg-red-700 p-2 rounded">Logout</button>
+    </aside>
+
+    <!-- Main -->
+    <main class="flex-1 p-6 overflow-auto">
+      <!-- DASHBOARD -->
+      <section id="page-dashboard" class="page hidden">
+        <h1 class="text-2xl font-bold mb-4">Dashboard</h1>
+        <div id="dashStats" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <p class="text-gray-500">Memuat data...</p>
+        </div>
+      </section>
+
+      <!-- BOOKINGS -->
+      <section id="page-bookings" class="page hidden">
+        <h1 class="text-2xl font-bold mb-4">Pesanan Hotel</h1>
+        <form id="formBooking" class="bg-white p-4 rounded shadow mb-4 grid grid-cols-1 md:grid-cols-3 gap-2">
+          <select name="customer_id" id="selCustomer" class="border p-2 rounded" required></select>
+          <select name="broker_id" id="selBroker" class="border p-2 rounded"></select>
+          <input name="hotel_nama" placeholder="Nama hotel" class="border p-2 rounded" required>
+          <input name="check_in" type="date" class="border p-2 rounded" required>
+          <input name="check_out" type="date" class="border p-2 rounded" required>
+          <input name="jumlah_kamar" type="number" min="1" value="1" placeholder="Jumlah kamar" class="border p-2 rounded">
+          <input name="jumlah_tamu" type="number" min="1" value="1" placeholder="Jumlah tamu" class="border p-2 rounded">
+          <input name="total" type="number" min="0" placeholder="Total (Rp)" class="border p-2 rounded" required>
+          <input name="catatan" placeholder="Catatan (opsional)" class="border p-2 rounded">
+          <button class="md:col-span-3 bg-blue-600 text-white rounded p-2 font-medium">Tambah Pesanan</button>
+        </form>
+        <div id="tableBookings" class="bg-white rounded shadow p-4 overflow-x-auto"></div>
+      </section>
+
+      <!-- INVOICES -->
+      <section id="page-invoices" class="page hidden">
+        <h1 class="text-2xl font-bold mb-4">Invoice</h1>
+        <div id="tableInvoices" class="bg-white rounded shadow p-4 overflow-x-auto"></div>
+      </section>
+
+      <!-- PAYMENTS -->
+      <section id="page-payments" class="page hidden">
+        <h1 class="text-2xl font-bold mb-4">Tanda Terima Uang Masuk</h1>
+        <div id="tablePayments" class="bg-white rounded shadow p-4 overflow-x-auto"></div>
+      </section>
+
+      <!-- BROKERS -->
+      <section id="page-brokers" class="page hidden">
+        <h1 class="text-2xl font-bold mb-4">Broker Hotel</h1>
+        <form id="formBroker" class="bg-white p-4 rounded shadow mb-4 grid grid-cols-1 md:grid-cols-3 gap-2">
+          <input name="nama" placeholder="Nama broker" class="border p-2 rounded" required>
+          <input name="kontak" placeholder="Kontak / telepon" class="border p-2 rounded">
+          <input name="komisi_persen" type="number" step="0.01" placeholder="Komisi (%)" class="border p-2 rounded">
+          <button class="md:col-span-3 bg-blue-600 text-white rounded p-2 font-medium">Tambah Broker</button>
+        </form>
+        <div id="tableBrokers" class="bg-white rounded shadow p-4 overflow-x-auto"></div>
+      </section>
+
+      <!-- CUSTOMERS -->
+      <section id="page-customers" class="page hidden">
+        <h1 class="text-2xl font-bold mb-4">Customer</h1>
+        <form id="formCustomer" class="bg-white p-4 rounded shadow mb-4 grid grid-cols-1 md:grid-cols-3 gap-2">
+          <input name="nama" placeholder="Nama customer" class="border p-2 rounded" required>
+          <input name="telepon" placeholder="Telepon" class="border p-2 rounded">
+          <input name="email" type="email" placeholder="Email" class="border p-2 rounded">
+          <button class="md:col-span-3 bg-blue-600 text-white rounded p-2 font-medium">Tambah Customer</button>
+        </form>
+        <div id="tableCustomers" class="bg-white rounded shadow p-4 overflow-x-auto"></div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<!-- ================= MODAL ================= -->
+<div id="modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+  <div id="modalContent" class="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-5"></div>
+</div>
+
+<!-- ================= PRINT AREA ================= -->
+<div id="printArea"></div>
+
+<!-- ================= SCRIPT ================= -->
+<script>
+/* =========================================================
+   KONFIGURASI — URL DARI GOOGLE APPS SCRIPT
+   ========================================================= */
+const API_URL = 'MASUKKAN_URL_WEB_APP_APPS_SCRIPT_ANDA_DISINI';
+
+/* =========================================================
+   HELPERS
+   ========================================================= */
+const rp = n => 'Rp ' + (Number(n)||0).toLocaleString('id-ID');
+const fmtDate = d => d ? new Date(d).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}) : '-';
+const today = () => new Date().toISOString().slice(0,10);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uuid = () => crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).substring(2);
+
+// Jembatan API ke Google Sheets
+const api = {
+  // Ambil data (Read)
+  get: async (sheetName) => {
+    try {
+      const res = await fetch(`${API_URL}?action=read&sheet=${sheetName}`);
+      const json = await res.json();
+      if (json.status === 'error') throw new Error(json.message);
+      return json.data;
+    } catch (err) {
+      alert('Gagal mengambil data: ' + err.message);
+      return [];
+    }
+  },
+  // Kirim data (Insert/Update/Delete)
+  post: async (sheetName, action, data) => {
+    try {
+      const payload = { sheet: sheetName, action: action, data: data };
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+      });
+      const json = await res.json();
+      if (json.status === 'error') throw new Error(json.message);
+      return json;
+    } catch (err) {
+      alert('Gagal menyimpan data: ' + err.message);
+      return null;
+    }
+  }
+};
+
+async function genNoInvoice() {
+  const d = new Date();
+  const p = `INV/${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/`;
+  const invs = await api.get('Invoices');
+  return p + String(invs.length + 1).padStart(4, '0');
+}
+
+async function genNoKuitansi() {
+  const d = new Date();
+  const p = `KW/${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/`;
+  const pays = await api.get('Payments');
+  return p + String(pays.length + 1).padStart(4, '0');
+}
+
+function showModal(html) {
+  document.getElementById('modalContent').innerHTML = html;
+  document.getElementById('modal').classList.remove('hidden');
+}
+function closeModal() {
+  document.getElementById('modal').classList.add('hidden');
+  document.getElementById('modalContent').innerHTML = '';
+}
+function printContent(html) {
+  const area = document.getElementById('printArea');
+  area.innerHTML = html;
+  window.print();
+  setTimeout(() => { area.innerHTML = ''; }, 300);
+}
+
+/* =========================================================
+   AUTH (SIMULASI FRONTEND)
+   ========================================================= */
+document.getElementById('loginForm').onsubmit = e => {
+  e.preventDefault();
+  const email = document.getElementById('loginEmail').value;
+  const pass = document.getElementById('loginPass').value;
+  const err = document.getElementById('loginErr');
+  
+  if (email === 'admin@admin' && pass === 'admin123') {
+    localStorage.setItem('isLoggedIn', 'true');
+    showApp();
+  } else {
+    err.textContent = 'Email atau password salah!';
+  }
+};
+
+function showApp() {
+  document.getElementById('loginScreen').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+  nav('dashboard');
+}
+
+function logout() {
+  localStorage.removeItem('isLoggedIn');
+  location.reload();
+}
+
+// Cek sesi saat halaman dimuat
+if (localStorage.getItem('isLoggedIn') === 'true') {
+  showApp();
+}
+
+/* =========================================================
+   NAVIGASI
+   ========================================================= */
+function nav(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
+  document.getElementById('page-' + page).classList.remove('hidden');
+  document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('bg-slate-700'));
+  document.querySelector(`[data-nav="${page}"]`)?.classList.add('bg-slate-700');
+  loadPage(page);
+}
+
+document.querySelectorAll('.nav-link').forEach(a => {
+  a.onclick = e => { e.preventDefault(); nav(a.dataset.nav); };
+});
+
+async function loadPage(page) {
+  if (page === 'dashboard') return loadDashboard();
+  if (page === 'bookings')  return loadBookings();
+  if (page === 'invoices')  return loadInvoices();
+  if (page === 'payments')  return loadPayments();
+  if (page === 'brokers')   return loadBrokers();
+  if (page === 'customers') return loadCustomers();
+}
+
+/* =========================================================
+   DASHBOARD
+   ========================================================= */
+async function loadDashboard() {
+  document.getElementById('dashStats').innerHTML = '<p class="text-gray-500 col-span-4">Memuat data...</p>';
+  
+  const bookings = await api.get('Bookings');
+  const invoices = await api.get('Invoices');
+  const payments = await api.get('Payments');
+
+  const totalInv = invoices.reduce((s,i) => s + Number(i.total || 0), 0);
+  const totalPaid = payments.reduce((s,p) => s + Number(p.jumlah || 0), 0);
+  const belumLunas = invoices.filter(i => i.status !== 'paid').length;
+
+  document.getElementById('dashStats').innerHTML = `
+    <div class="bg-white p-4 rounded shadow"><p class="text-sm text-gray-500">Total Pesanan</p><p class="text-2xl font-bold">${bookings.length}</p></div>
+    <div class="bg-white p-4 rounded shadow"><p class="text-sm text-gray-500">Total Invoice</p><p class="text-2xl font-bold">${rp(totalInv)}</p></div>
+    <div class="bg-white p-4 rounded shadow"><p class="text-sm text-gray-500">Uang Masuk</p><p class="text-2xl font-bold text-green-600">${rp(totalPaid)}</p></div>
+    <div class="bg-white p-4 rounded shadow"><p class="text-sm text-gray-500">Invoice Belum Lunas</p><p class="text-2xl font-bold text-red-600">${belumLunas}</p></div>
+  `;
+}
+
+/* =========================================================
+   BROKERS & CUSTOMERS
+   ========================================================= */
+async function loadBrokers() {
+  const data = await api.get('Brokers');
+  const rows = data.map(b => `
+    <tr class="border-b">
+      <td class="p-2">${esc(b.nama)}</td>
+      <td>${esc(b.kontak)}</td>
+      <td>${b.komisi_persen||0}%</td>
+      <td class="text-right"><button onclick="hapusData('Brokers', '${b.id}', loadBrokers)" class="text-red-600 hover:underline text-sm">Hapus</button></td>
+    </tr>`).join('');
+  document.getElementById('tableBrokers').innerHTML = `
+    <table class="w-full text-sm">
+      <thead class="text-left text-gray-500 border-b"><tr><th class="p-2">Nama</th><th>Kontak</th><th>Komisi</th><th></th></tr></thead>
+      <tbody>${rows || '<tr><td colspan="4" class="p-2 text-gray-500">Belum ada data.</td></tr>'}</tbody>
+    </table>`;
+}
+
+document.getElementById('formBroker').onsubmit = async e => {
+  e.preventDefault();
+  const f = e.target;
+  const payload = {
+    id: uuid(), nama: f.nama.value, kontak: f.kontak.value, 
+    komisi_persen: f.komisi_persen.value, created_at: new Date().toISOString()
+  };
+  await api.post('Brokers', 'insert', payload);
+  f.reset();
+  loadBrokers();
+};
+
+async function loadCustomers() {
+  const data = await api.get('Customers');
+  const rows = data.map(c => `
+    <tr class="border-b">
+      <td class="p-2">${esc(c.nama)}</td>
+      <td>${esc(c.telepon)}</td>
+      <td>${esc(c.email)}</td>
+      <td class="text-right"><button onclick="hapusData('Customers', '${c.id}', loadCustomers)" class="text-red-600 hover:underline text-sm">Hapus</button></td>
+    </tr>`).join('');
+  document.getElementById('tableCustomers').innerHTML = `
+    <table class="w-full text-sm">
+      <thead class="text-left text-gray-500 border-b"><tr><th class="p-2">Nama</th><th>Telepon</th><th>Email</th><th></th></tr></thead>
+      <tbody>${rows || '<tr><td colspan="4" class="p-2 text-gray-500">Belum ada data.</td></tr>'}</tbody>
+    </table>`;
+}
+
+document.getElementById('formCustomer').onsubmit = async e => {
+  e.preventDefault();
+  const f = e.target;
+  const payload = {
+    id: uuid(), nama: f.nama.value, telepon: f.telepon.value, 
+    email: f.email.value, created_at: new Date().toISOString()
+  };
+  await api.post('Customers', 'insert', payload);
+  f.reset();
+  loadCustomers();
+};
+
+async function hapusData(sheet, id, callback) {
+  if (!confirm('Yakin ingin menghapus data ini?')) return;
+  await api.post(sheet, 'delete', { id: id });
+  callback();
+}
+
+/* =========================================================
+   BOOKINGS
+   ========================================================= */
+async function loadBookings() {
+  const [customers, brokers, bookings] = await Promise.all([
+    api.get('Customers'),
+    api.get('Brokers'),
+    api.get('Bookings')
+  ]);
+
+  document.getElementById('selCustomer').innerHTML = '<option value="">-- Pilih Customer --</option>' +
+    customers.map(c => `<option value="${c.id}">${esc(c.nama)}</option>`).join('');
+  document.getElementById('selBroker').innerHTML = '<option value="">-- Tanpa Broker --</option>' +
+    brokers.map(b => `<option value="${b.id}">${esc(b.nama)}</option>`).join('');
+
+  const rows = bookings.map(b => {
+    const cust = customers.find(c => c.id === b.customer_id) || {};
+    return `
+    <tr class="border-b text-sm">
+      <td class="p-2 font-mono text-xs">${esc(b.kode_booking)}</td>
+      <td>${esc(cust.nama || '-')}</td>
+      <td>${esc(b.hotel_nama)}</td>
+      <td class="whitespace-nowrap">${fmtDate(b.check_in)} → ${fmtDate(b.check_out)}</td>
+      <td>${b.jumlah_kamar}</td>
+      <td>${rp(b.total)}</td>
+      <td><span class="px-2 py-0.5 rounded text-xs bg-yellow-100 text-yellow-700">${b.status}</span></td>
+      <td class="text-right whitespace-nowrap">
+        <button onclick="createInvoice('${b.id}')" class="text-blue-600 hover:underline text-xs">Buat Invoice</button>
+        <button onclick="hapusData('Bookings', '${b.id}', loadBookings)" class="text-red-600 hover:underline text-xs ml-2">Hapus</button>
+      </td>
+    </tr>`}).join('');
+
+  document.getElementById('tableBookings').innerHTML = `
+    <table class="w-full">
+      <thead class="text-left text-gray-500 border-b text-xs">
+        <tr><th class="p-2">Kode</th><th>Customer</th><th>Hotel</th><th>Check In → Out</th><th>Kamar</th><th>Total</th><th>Status</th><th></th></tr>
+      </thead>
+      <tbody>${rows || '<tr><td colspan="8" class="p-2 text-gray-500 text-sm">Belum ada pesanan.</td></tr>'}</tbody>
+    </table>`;
+}
+
+document.getElementById('formBooking').onsubmit = async e => {
+  e.preventDefault();
+  const f = e.target;
+  const payload = {
+    id: uuid(),
+    kode_booking: 'BK' + Date.now(),
+    customer_id: f.customer_id.value,
+    broker_id: f.broker_id.value,
+    hotel_nama: f.hotel_nama.value,
+    check_in: f.check_in.value,
+    check_out: f.check_out.value,
+    jumlah_kamar: f.jumlah_kamar.value,
+    jumlah_tamu: f.jumlah_tamu.value,
+    total: f.total.value,
+    status: 'pending',
+    catatan: f.catatan.value,
+    created_at: new Date().toISOString()
+  };
+  await api.post('Bookings', 'insert', payload);
+  f.reset();
+  loadBookings();
+};
+
+async function createInvoice(bookingId) {
+  const invoices = await api.get('Invoices');
+  if (invoices.find(i => i.booking_id === bookingId)) {
+    return alert('Invoice untuk pesanan ini sudah dibuat!');
+  }
+  
+  const bookings = await api.get('Bookings');
+  const b = bookings.find(x => x.id === bookingId);
+  if (!b) return alert('Pesanan tidak ditemukan.');
+
+  const no = await genNoInvoice();
+  const payload = {
+    id: uuid(), no_invoice: no, booking_id: bookingId, 
+    tanggal: today(), total: b.total, status: 'unpaid', created_at: new Date().toISOString()
+  };
+  
+  await api.post('Invoices', 'insert', payload);
+  await api.post('Bookings', 'update', { id: bookingId, status: 'invoiced' });
+  
+  alert('Invoice berhasil dibuat: ' + no);
+  nav('invoices');
+}
+
+/* =========================================================
+   INVOICES
+   ========================================================= */
+async function loadInvoices() {
+  const [invoices, bookings, customers] = await Promise.all([
+    api.get('Invoices'),
+    api.get('Bookings'),
+    api.get('Customers')
+  ]);
+
+  const rows = invoices.map(i => {
+    const b = bookings.find(x => x.id === i.booking_id) || {};
+    const c = customers.find(x => x.id === b.customer_id) || {};
+    return `
+      <tr class="border-b text-sm">
+        <td class="p-2 font-mono text-xs">${esc(i.no_invoice)}</td>
+        <td>${fmtDate(i.tanggal)}</td>
+        <td>${esc(c.nama || '-')}</td>
+        <td>${esc(b.hotel_nama || '-')}</td>
+        <td>${rp(i.total)}</td>
+        <td><span class="px-2 py-0.5 rounded text-xs ${
+          i.status==='paid'?'bg-green-100 text-green-700':
+          i.status==='partial'?'bg-blue-100 text-blue-700':'bg-red-100 text-red-700'
+        }">${i.status}</span></td>
+        <td class="text-right whitespace-nowrap">
+          <button onclick="printInvoice('${i.id}')" class="text-blue-600 hover:underline text-xs">Cetak</button>
+          ${i.status!=='paid' ? `<button onclick="openPaymentModal('${i.id}')" class="text-green-600 hover:underline text-xs ml-2">Catat Bayar</button>` : ''}
+        </td>
+      </tr>`;
+  }).join('');
+
+  document.getElementById('tableInvoices').innerHTML = `
+    <table class="w-full">
+      <thead class="text-left text-gray-500 border-b text-xs">
+        <tr><th class="p-2">No Invoice</th><th>Tanggal</th><th>Customer</th><th>Hotel</th><th>Total</th><th>Status</th><th></th></tr>
+      </thead>
+      <tbody>${rows || '<tr><td colspan="7" class="p-2 text-gray-500 text-sm">Belum ada invoice.</td></tr>'}</tbody>
+    </table>`;
+}
+
+async function printInvoice(invoiceId) {
+  const [invoices, bookings, customers, brokers] = await Promise.all([
+    api.get('Invoices'), api.get('Bookings'), api.get('Customers'), api.get('Brokers')
+  ]);
+  
+  const i = invoices.find(x => x.id === invoiceId);
+  if (!i) return;
+  const b = bookings.find(x => x.id === i.booking_id) || {};
+  const c = customers.find(x => x.id === b.customer_id) || {};
+  const br = brokers.find(x => x.id === b.broker_id) || {};
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px;">
+      <div style="display:flex; justify-content:space-between; align-items:start;">
+        <div>
+          <h1 style="margin:0; font-size:28px;">INVOICE</h1>
+          <p style="margin:2px 0;">No: <b>${esc(i.no_invoice)}</b></p>
+          <p style="margin:2px 0;">Tanggal: ${fmtDate(i.tanggal)}</p>
+        </div>
+        <div style="text-align:right;">
+          <h2 style="margin:0;">Hotel Admin</h2>
+          <p style="margin:2px 0; font-size:12px; color:#555;">Sistem Manajemen Pesanan</p>
+        </div>
+      </div>
+      <hr style="margin:16px 0;">
+      <p><b>Kepada:</b> ${esc(c.nama || '-')}<br>
+         ${c.telepon ? 'Telp: ' + esc(c.telepon) + '<br>' : ''}
+         ${c.email ? 'Email: ' + esc(c.email) : ''}</p>
+      <p style="margin-top:12px;"><b>Broker:</b> ${esc(br.nama || '-')}</p>
+      <p><b>Hotel:</b> ${esc(b.hotel_nama)}</p>
+      <p><b>Check-in:</b> ${fmtDate(b.check_in)} &nbsp;&nbsp; <b>Check-out:</b> ${fmtDate(b.check_out)}</p>
+      <p><b>Kamar:</b> ${b.jumlah_kamar} &nbsp;&nbsp; <b>Tamu:</b> ${b.jumlah_tamu}</p>
+      <table style="width:100%; margin-top:20px; border-collapse:collapse;">
+        <thead>
+          <tr style="background:#f3f4f6;"><th style="text-align:left; padding:8px; border:1px solid #ddd;">Deskripsi</th><th style="text-align:right; padding:8px; border:1px solid #ddd;">Jumlah</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="padding:8px; border:1px solid #ddd;">Pemesanan hotel ${esc(b.hotel_nama)}</td>
+            <td style="text-align:right; padding:8px; border:1px solid #ddd;">${rp(i.total)}</td>
+          </tr>
+          <tr style="background:#f9fafb; font-weight:bold;">
+            <td style="padding:8px; border:1px solid #ddd; text-align:right;">TOTAL</td>
+            <td style="text-align:right; padding:8px; border:1px solid #ddd;">${rp(i.total)}</td>
+          </tr>
+        </tbody>
+      </table>
+      <p style="margin-top:20px;">Status: <b>${(i.status || '').toUpperCase()}</b></p>
+    </div>
+  `;
+  printContent(html);
+}
+
+/* =========================================================
+   PAYMENTS
+   ========================================================= */
+async function loadPayments() {
+  const [payments, invoices, bookings, customers] = await Promise.all([
+    api.get('Payments'), api.get('Invoices'), api.get('Bookings'), api.get('Customers')
+  ]);
+
+  const rows = payments.map(p => {
+    const inv = invoices.find(x => x.id === p.invoice_id) || {};
+    const b = bookings.find(x => x.id === inv.booking_id) || {};
+    const c = customers.find(x => x.id === b.customer_id) || {};
+    return `
+    <tr class="border-b text-sm">
+      <td class="p-2 font-mono text-xs">${esc(p.no_kuitansi)}</td>
+      <td>${fmtDate(p.tanggal)}</td>
+      <td class="font-mono text-xs">${esc(inv.no_invoice || '-')}</td>
+      <td>${esc(c.nama || '-')}</td>
+      <td>${rp(p.jumlah)}</td>
+      <td>${esc(p.metode)}</td>
+      <td class="text-right"><button onclick="printReceipt('${p.id}')" class="text-blue-600 hover:underline text-xs">Cetak</button></td>
+    </tr>`}).join('');
+
+  document.getElementById('tablePayments').innerHTML = `
+    <table class="w-full">
+      <thead class="text-left text-gray-500 border-b text-xs">
+        <tr><th class="p-2">No Kuitansi</th><th>Tanggal</th><th>Invoice</th><th>Customer</th><th>Jumlah</th><th>Metode</th><th></th></tr>
+      </thead>
+      <tbody>${rows || '<tr><td colspan="7" class="p-2 text-gray-500 text-sm">Belum ada pembayaran.</td></tr>'}</tbody>
+    </table>`;
+}
+
+async function openPaymentModal(invoiceId) {
+  const [invoices, payments] = await Promise.all([api.get('Invoices'), api.get('Payments')]);
+  const inv = invoices.find(x => x.id === invoiceId);
+  if (!inv) return;
+
+  const paid = payments.filter(p => p.invoice_id === invoiceId).reduce((s,p) => s + Number(p.jumlah), 0);
+  const remaining = Number(inv.total) - paid;
+
+  showModal(`
+    <h2 class="text-lg font-bold mb-3">Catat Pembayaran</h2>
+    <p class="text-sm mb-1">No Invoice: <b>${esc(inv.no_invoice)}</b></p>
+    <p class="text-sm mb-1">Total: <b>${rp(inv.total)}</b></p>
+    <p class="text-sm mb-3">Sisa: <b class="text-red-600">${rp(remaining)}</b></p>
+    <form id="payForm" class="space-y-2">
+      <div>
+        <label class="text-xs text-gray-600">Jumlah bayar (Rp)</label>
+        <input name="jumlah" type="number" min="1" value="${remaining}" class="border p-2 w-full rounded" required>
+      </div>
+      <div>
+        <label class="text-xs text-gray-600">Metode</label>
+        <select name="metode" class="border p-2 w-full rounded">
+          <option value="transfer">Transfer</option>
+          <option value="cash">Cash</option>
+        </select>
+      </div>
+      <div class="flex gap-2 pt-2">
+        <button type="button" onclick="closeModal()" class="flex-1 border p-2 rounded">Batal</button>
+        <button class="flex-1 bg-green-600 hover:bg-green-700 text-white p-2 rounded font-medium">Simpan</button>
+      </div>
+    </form>
+  `);
+
+  document.getElementById('payForm').onsubmit = async e => {
+    e.preventDefault();
+    const f = e.target;
+    const jumlah = Number(f.jumlah.value);
+    if (jumlah <= 0) return alert('Jumlah tidak valid');
+
+    const no = await genNoKuitansi();
+    await api.post('Payments', 'insert', {
+      id: uuid(), no_kuitansi: no, invoice_id: invoiceId, 
+      tanggal: today(), jumlah: jumlah, metode: f.metode.value, created_at: new Date().toISOString()
+    });
+
+    const newPaid = paid + jumlah;
+    const status = newPaid >= Number(inv.total) ? 'paid' : 'partial';
+    await api.post('Invoices', 'update', { id: invoiceId, status: status });
+    
+    if (status === 'paid') {
+      await api.post('Bookings', 'update', { id: inv.booking_id, status: 'paid' });
+    }
+
+    closeModal();
+    loadPage('invoices');
+    alert('Pembayaran tersimpan. No kuitansi: ' + no);
+  };
+}
+
+async function printReceipt(paymentId) {
+  const [payments, invoices, bookings, customers] = await Promise.all([
+    api.get('Payments'), api.get('Invoices'), api.get('Bookings'), api.get('Customers')
+  ]);
+
+  const p = payments.find(x => x.id === paymentId);
+  if (!p) return;
+  const inv = invoices.find(x => x.id === p.invoice_id) || {};
+  const b = bookings.find(x => x.id === inv.booking_id) || {};
+  const c = customers.find(x => x.id === b.customer_id) || {};
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto; padding: 20px;">
+      <div style="display:flex; justify-content:space-between; align-items:start;">
+        <div>
+          <h1 style="margin:0; font-size:26px;">TANDA TERIMA</h1>
+          <p style="margin:2px 0;">No: <b>${esc(p.no_kuitansi)}</b></p>
+          <p style="margin:2px 0;">Tanggal: ${fmtDate(p.tanggal)}</p>
+        </div>
+        <div style="text-align:right;">
+          <h2 style="margin:0;">Hotel Admin</h2>
+          <p style="margin:2px 0; font-size:12px; color:#555;">Bukti Penerimaan Uang</p>
+        </div>
+      </div>
+      <hr style="margin:16px 0;">
+      <p>Telah diterima pembayaran dari:</p>
+      <p><b>${esc(c.nama || '-')}</b></p>
+      <table style="width:100%; margin-top:12px; border-collapse:collapse;">
+        <tr><td style="padding:6px 0;">Untuk Invoice</td><td>: <b>${esc(inv.no_invoice)}</b></td></tr>
+        <tr><td style="padding:6px 0;">Hotel</td><td>: ${esc(b.hotel_nama)}</td></tr>
+        <tr><td style="padding:6px 0;">Metode</td><td>: ${esc(p.metode)}</td></tr>
+      </table>
+      <div style="margin-top:20px; padding:14px; background:#f0fdf4; border-left:4px solid #16a34a;">
+        <p style="margin:0; font-size:12px; color:#555;">Jumlah Diterima</p>
+        <p style="margin:4px 0 0 0; font-size:24px; font-weight:bold;">${rp(p.jumlah)}</p>
+      </div>
+    </div>
+  `;
+  printContent(html);
+}
+</script>
+</body>
+</html>
