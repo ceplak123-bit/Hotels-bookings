@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hamra Booking - Portal Customer</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  .hidden-section { display: none !important; }
+</style>
+</head>
+<body class="bg-gray-100 text-gray-800 min-h-screen py-8 px-4">
+
+<div class="max-w-4xl mx-auto">
+
+  <!-- ================= HALAMAN LOGIN ================= -->
+  <div id="loginSection">
+    <div class="text-center mb-8">
+      <!-- LOGO DI LOGIN CUSTOMER -->
+      <img src="logo.png" alt="Hamra Booking" class="h-32 mx-auto mb-2 object-contain">
+      <h1 class="text-2xl font-bold text-slate-800">Portal Customer</h1>
+      <p class="text-gray-600">Masuk untuk melihat pesanan Anda</p>
+    </div>
+
+    <div class="bg-white p-8 rounded-xl shadow-lg max-w-sm mx-auto">
+      <form id="loginForm" class="space-y-4">
+        <div>
+          <label class="text-sm font-bold text-gray-600 mb-1 block">Nama Lengkap</label>
+          <input type="text" id="loginNama" placeholder="Sesuai saat memesan" class="border p-3 rounded w-full" required>
+        </div>
+        <div>
+          <label class="text-sm font-bold text-gray-600 mb-1 block">Nomor WhatsApp</label>
+          <input type="tel" id="loginTelepon" placeholder="Cth: 08123456789" class="border p-3 rounded w-full" required>
+        </div>
+        <button type="submit" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-3 rounded-lg shadow">Masuk</button>
+      </form>
+      <p id="loginError" class="text-red-500 text-sm mt-3 text-center hidden"></p>
+      
+      <div class="mt-6 text-center text-sm text-gray-500">
+        Belum pernah memesan? <br> 
+        <a href="#" onclick="showGuestBooking()" class="text-blue-600 font-bold hover:underline">Pesan Tanpa Login (Guest)</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= HALAMAN DASHBOARD CUSTOMER ================= -->
+  <div id="dashboardSection" class="hidden-section">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row justify-between items-center mb-6 bg-white p-4 rounded-xl shadow-sm gap-4">
+      <div class="flex items-center gap-4">
+        <!-- LOGO DI HEADER DASHBOARD -->
+        <img src="logo.png" alt="Hamra Booking" class="h-14 object-contain bg-slate-50 p-1 rounded">
+        <div>
+          <h2 class="text-xl font-bold text-slate-800">Halo, <span id="txtNamaCustomer" class="text-blue-600"></span>!</h2>
+          <p class="text-sm text-gray-500">Selamat datang di Portal Pesanan Anda.</p>
+        </div>
+      </div>
+      <button onclick="logout()" class="bg-red-100 text-red-600 px-6 py-2 rounded font-bold text-sm hover:bg-red-200 w-full md:w-auto">Logout</button>
+    </div>
+
+    <!-- Menu Navigasi -->
+    <div class="flex gap-2 mb-6">
+      <button id="btnTabPesanan" onclick="switchTab('pesanan')" class="flex-1 bg-slate-800 text-white font-bold py-3 rounded-lg shadow">Pesanan Saya</button>
+      <button id="btnTabBaru" onclick="switchTab('baru')" class="flex-1 bg-white text-gray-600 font-bold py-3 rounded-lg shadow hover:bg-gray-50">Pesan Hotel Baru</button>
+    </div>
+
+    <!-- KONTEN: DAFTAR PESANAN -->
+    <div id="tabPesanan">
+      <div id="orderList" class="space-y-4">
+        <p class="text-center text-gray-500 py-8">Memuat pesanan...</p>
+      </div>
+    </div>
+
+    <!-- KONTEN: FORM PESANAN BARU -->
+    <div id="tabBaru" class="hidden-section">
+      <form id="formBooking" class="bg-white p-6 rounded-xl shadow-lg space-y-6">
+        <h3 class="text-xl font-bold text-slate-800 border-b pb-2">Form Pemesanan Baru</h3>
+        
+        <div>
+          <h4 class="font-bold text-slate-700 mb-3">Rencana Perjalanan</h4>
+          <div id="itineraryContainer" class="space-y-4"></div>
+          <button type="button" onclick="tambahSegmen()" class="mt-3 bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded font-semibold text-sm">+ Tambah Kota Lain</button>
+        </div>
+
+        <div class="bg-green-50 p-4 rounded-lg border border-green-200">
+          <label class="text-sm text-gray-600 mb-1 font-bold">Total Estimasi Biaya (Rp)</label>
+          <input name="total" id="inpTotal" type="number" class="bg-transparent w-full font-bold text-green-700 text-3xl outline-none" readonly required>
+          <p class="text-xs text-gray-500 mt-2">*Admin akan mengonfirmasi ketersediaan kamar sebelum pembayaran.</p>
+        </div>
+
+        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg p-4 font-bold text-lg shadow-lg">Kirim Pesanan ke Admin</button>
+      </form>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const API_URL = 'https://script.google.com/macros/s/AKfycbwZwSt2tVt6F5tkAvPcqpQ8hlkU3hIAC9SONWFmrk-GIS8_E8swH5GbPfv8kp-TzVzWgg/exec';
+const ADMIN_WA = '62881011154839';
+
+const rp = n => 'Rp ' + (Number(n)||0).toLocaleString('id-ID');
+const fmtDate = d => d ? new Date(d).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}) : '-';
+const uuid = () => crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).substring(2);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+const api = {
+  get: async (sheetName) => {
+    const res = await fetch(`${API_URL}?action=read&sheet=${sheetName}`);
+    const json = await res.json();
+    return json.data || [];
+  },
+  post: async (sheetName, action, data) => {
+    const res = await fetch(API_URL, { method: 'POST', body: JSON.stringify({ sheet: sheetName, action: action, data: data }), headers: { 'Content-Type': 'text/plain;charset=utf-8' } });
+    return await res.json();
+  }
+};
+
+/* =========================================================
+   LOGIKA LOGIN & SESSION
+   ========================================================= */
+document.addEventListener('DOMContentLoaded', () => {
+  const savedId = localStorage.getItem('cust_id');
+  if (savedId) {
+    showDashboard(localStorage.getItem('cust_nama'));
+  }
+});
+
+document.getElementById('loginForm').onsubmit = async e => {
+  e.preventDefault();
+  const btn = e.target.querySelector('button');
+  btn.innerHTML = 'Mencari data...'; btn.disabled = true;
+
+  const nama = document.getElementById('loginNama').value.trim();
+  const telepon = document.getElementById('loginTelepon').value.trim();
+
+  const customers = await api.get('Customers');
+  const user = customers.find(c => 
+    String(c.nama).toLowerCase() === nama.toLowerCase() && 
+    String(c.telepon).replace(/[^0-9]/g, '') === telepon.replace(/[^0-9]/g, '')
+  );
+
+  if (user) {
+    localStorage.setItem('cust_id', user.id);
+    localStorage.setItem('cust_nama', user.nama);
+    localStorage.setItem('cust_telp', user.telepon);
+    showDashboard(user.nama);
+  } else {
+    document.getElementById('loginError').textContent = 'Nama atau Nomor HP tidak ditemukan. Pastikan sesuai dengan saat pemesanan.';
+    document.getElementById('loginError').classList.remove('hidden');
+    btn.innerHTML = 'Masuk'; btn.disabled = false;
+  }
+};
+
+function showDashboard(nama) {
+  document.getElementById('loginSection').classList.add('hidden-section');
+  document.getElementById('dashboardSection').classList.remove('hidden-section');
+  document.getElementById('txtNamaCustomer').textContent = nama;
+  loadMyOrders();
+}
+
+function logout() {
+  localStorage.clear();
+  location.reload();
+}
+
+function showGuestBooking() {
+  alert("Fitur guest belum tersedia di versi ini. Silakan hubungi Admin secara langsung.");
+}
+
+/* =========================================================
+   LOAD DATA PESANAN CUSTOMER
+   ========================================================= */
+function switchTab(tab) {
+  if (tab === 'pesanan') {
+    document.getElementById('tabPesanan').classList.remove('hidden-section');
+    document.getElementById('tabBaru').classList.add('hidden-section');
+    document.getElementById('btnTabPesanan').className = "flex-1 bg-slate-800 text-white font-bold py-3 rounded-lg shadow";
+    document.getElementById('btnTabBaru').className = "flex-1 bg-white text-gray-600 font-bold py-3 rounded-lg shadow hover:bg-gray-50";
+  } else {
+    document.getElementById('tabPesanan').classList.add('hidden-section');
+    document.getElementById('tabBaru').classList.remove('hidden-section');
+    document.getElementById('btnTabBaru').className = "flex-1 bg-slate-800 text-white font-bold py-3 rounded-lg shadow";
+    document.getElementById('btnTabPesanan').className = "flex-1 bg-white text-gray-600 font-bold py-3 rounded-lg shadow hover:bg-gray-50";
+  }
+}
+
+async function loadMyOrders() {
+  const custId = localStorage.getItem('cust_id');
+  const [bookings, invoices, payments] = await Promise.all([
+    api.get('Bookings'), api.get('Invoices'), api.get('Payments')
+  ]);
+
+  const myBookings = bookings.filter(b => b.customer_id === custId).sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+  const container = document.getElementById('orderList');
+
+  if (myBookings.length === 0) {
+    container.innerHTML = '<div class="bg-white p-8 rounded-xl shadow text-center text-gray-500">Anda belum memiliki pesanan.</div>';
+    return;
+  }
+
+  container.innerHTML = myBookings.map(b => {
+    const inv = invoices.find(i => i.booking_id === b.id);
+    let totalPaid = 0;
+    if (inv) {
+      totalPaid = payments.filter(p => p.invoice_id === inv.id).reduce((s, p) => s + Number(p.jumlah), 0);
+    }
+
+    let statusKamar = { text: 'Menunggu Cek Admin', color: 'bg-yellow-100 text-yellow-700' };
+    if (b.status === 'invoiced' || b.status === 'paid') {
+      statusKamar = { text: 'Kamar TERSEDIA', color: 'bg-green-100 text-green-700' };
+    }
+
+    let statusBayar = { text: 'Belum Ada Tagihan', color: 'bg-gray-100 text-gray-700' };
+    if (inv) {
+      if (totalPaid >= Number(inv.total)) {
+        statusBayar = { text: 'LUNAS', color: 'bg-green-500 text-white' };
+      } else if (totalPaid > 0) {
+        statusBayar = { text: 'Dibayar Sebagian', color: 'bg-blue-100 text-blue-700' };
+      } else {
+        statusBayar = { text: 'Belum Dibayar', color: 'bg-red-100 text-red-700' };
+      }
+    }
+
+    let rincianHtml = (b.rincian_kamar || '-').split(' | ').map(r => `<li>${esc(r)}</li>`).join('');
+
+    return `
+    <div class="bg-white rounded-xl shadow-md overflow-hidden border-t-4 ${b.status === 'paid' ? 'border-green-500' : 'border-slate-800'}">
+      <div class="p-4 md:p-6">
+        <div class="flex flex-col md:flex-row justify-between md:items-center mb-4 pb-4 border-b gap-4">
+          <div>
+            <span class="font-mono text-sm font-bold bg-gray-100 px-2 py-1 rounded">${esc(b.kode_booking)}</span>
+            <span class="text-xs text-gray-500 ml-2">Dipesan: ${fmtDate(b.created_at)}</span>
+          </div>
+          <div class="flex gap-2 flex-wrap">
+            <span class="text-xs font-bold px-3 py-1 rounded-full ${statusKamar.color}">Info Kamar: ${statusKamar.text}</span>
+            <span class="text-xs font-bold px-3 py-1 rounded-full ${statusBayar.color}">Pembayaran: ${statusBayar.text}</span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <p class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Rincian Perjalanan</p>
+            <ul class="list-disc list-inside space-y-1 text-sm bg-gray-50 p-3 rounded border">${rincianHtml}</ul>
+          </div>
+          <div>
+            <p class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Total Tagihan</p>
+            <p class="text-3xl font-bold text-green-700">${rp(b.total)}</p>
+            
+            ${inv ? `
+              <div class="mt-2 text-sm">
+                <p class="text-gray-600">No. Invoice: <b class="font-mono">${esc(inv.no_invoice)}</b></p>
+                ${totalPaid > 0 ? `<p class="text-green-600 font-bold mt-1">Terbayar: ${rp(totalPaid)}</p>` : ''}
+              </div>
+            ` : ''}
+          </div>
+        </div>
+
+        ${b.status === 'pending' ? `
+          <div class="mt-4 p-3 bg-yellow-50 rounded border border-yellow-200 text-sm text-yellow-800">
+            ⏳ <b>Mohon Tunggu:</b> Admin sedang mengecek ketersediaan kamar ke pihak hotel. Kami akan segera mengirimkan tagihan jika kamar tersedia.
+          </div>
+        ` : ''}
+        
+        ${(b.status === 'invoiced' && inv && totalPaid < Number(inv.total)) ? `
+          <div class="mt-4 p-3 bg-blue-50 rounded border border-blue-200 text-sm text-blue-800 flex justify-between items-center flex-wrap gap-2">
+            <span>💡 <b>Kamar Tersedia!</b> Silakan lakukan pembayaran.</span>
+            <a href="https://wa.me/${ADMIN_WA}?text=Halo%20Admin,%20saya%20ingin%20membayar%20invoice%20${inv.no_invoice}" target="_blank" class="bg-slate-800 text-white px-4 py-2 rounded font-bold text-xs">Konfirmasi Pembayaran (WA)</a>
+          </div>
+        ` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* =========================================================
+   FORM PEMESANAN BARU (MULTI-KOTA)
+   ========================================================= */
+let masterHotels = [];
+let segmenCount = 0;
+
+async function initNewOrderForm() {
+  if (masterHotels.length === 0) {
+    masterHotels = await api.get('Hotels');
+  }
+  if (document.querySelectorAll('.segmen-box').length === 0) {
+    tambahSegmen();
+  }
+}
+
+function tambahSegmen() {
+  if (masterHotels.length === 0) {
+    alert("Sedang memuat data hotel, silakan tunggu sebentar...");
+    initNewOrderForm().then(() => tambahSegmen());
+    return;
+  }
+
+  segmenCount++;
+  const id = 'seg_' + segmenCount;
+  const container = document.getElementById('itineraryContainer');
+
+  const div = document.createElement('div');
+  div.className = 'bg-gray-50 border p-4 rounded-lg shadow-sm segmen-box relative';
+  div.id = id;
+
+  div.innerHTML = `
+    <button type="button" onclick="hapusSegmen('${id}')" class="absolute top-2 right-2 text-red-500 hover:text-red-700 font-bold text-xl">&times;</button>
+    <h5 class="font-bold text-blue-700 mb-3 text-sm">Perjalanan #${segmenCount}</h5>
+    
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+      <div>
+        <label class="text-xs text-gray-500 font-bold mb-1 block">Kota</label>
+        <select class="border p-2 rounded w-full seg-kota" onchange="filterHotels('${id}')">
+          <option value="Makkah">Makkah</option>
+          <option value="Madinah">Madinah</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-xs text-gray-500 font-bold mb-1 block">Hotel (Sesuai Periode)</label>
+        <select class="border p-2 rounded w-full seg-hotel" onchange="updateKamarOptions('${id}')">
+          <option value="">-- Pilih Tanggal Dulu --</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-xs text-gray-500 font-bold mb-1 block">Check In</label>
+        <input type="date" class="border p-2 rounded w-full seg-checkin" onchange="filterHotels('${id}')">
+      </div>
+      <div>
+        <label class="text-xs text-gray-500 font-bold mb-1 block">Check Out</label>
+        <input type="date" class="border p-2 rounded w-full seg-checkout" onchange="filterHotels('${id}')">
+      </div>
+    </div>
+
+    <div class="bg-white p-3 border rounded">
+      <label class="text-xs text-gray-500 font-bold mb-2 block">Pilih Kamar & Harga</label>
+      <div class="seg-rooms space-y-2">
+        <p class="text-xs text-gray-400 italic">Pilih hotel dan tanggal terlebih dahulu.</p>
+      </div>
+    </div>
+  `;
+  container.appendChild(div);
+}
+
+function hapusSegmen(id) {
+  if(document.querySelectorAll('.segmen-box').length <= 1) return alert("Minimal harus ada 1 segmen perjalanan.");
+  document.getElementById(id).remove();
+  hitungTotalKeseluruhan();
+}
+
+function filterHotels(segId) {
+  const box = document.getElementById(segId);
+  const kota = box.querySelector('.seg-kota').value;
+  const checkIn = box.querySelector('.seg-checkin').value;
+  const checkOut = box.querySelector('.seg-checkout').value;
+  const selHotel = box.querySelector('.seg-hotel');
+
+  if (!checkIn || !checkOut) {
+    selHotel.innerHTML = '<option value="">-- Isi Tanggal Dulu --</option>';
+    return;
+  }
+
+  const d1 = new Date(checkIn);
+  const d2 = new Date(checkOut);
+
+  const validHotels = masterHotels.filter(h => {
+    if (h.kota !== kota) return false;
+    const hMulai = new Date(h.tgl_mulai);
+    const hSelesai = new Date(h.tgl_selesai);
+    return (hMulai <= d1 && hSelesai >= d2);
+  });
+
+  if (validHotels.length === 0) {
+    selHotel.innerHTML = '<option value="">-- Tidak ada hotel pada tanggal ini --</option>';
+    updateKamarOptions(segId);
+  } else {
+    selHotel.innerHTML = '<option value="">-- Pilih Hotel --</option>' + validHotels.map(h => `<option value="${h.id}">${esc(h.nama_hotel)}</option>`).join('');
+    updateKamarOptions(segId);
+  }
+}
+
+function updateKamarOptions(segId) {
+  const box = document.getElementById(segId);
+  const hotelId = box.querySelector('.seg-hotel').value;
+  const roomContainer = box.querySelector('.seg-rooms');
+  
+  if (!hotelId) {
+    roomContainer.innerHTML = '<p class="text-xs text-gray-400 italic">Pilih hotel terlebih dahulu.</p>';
+    hitungTotalKeseluruhan();
+    return;
+  }
+
+  const hotelData = masterHotels.find(h => h.id === hotelId);
+  
+  let opts = [];
+  if (hotelData.d_ro > 0) opts.push({ label: 'Double (Room Only)', price: hotelData.d_ro, type: 'Double', ket: 'RO' });
+  if (hotelData.d_fb > 0) opts.push({ label: 'Double (Fullboard)', price: hotelData.d_fb, type: 'Double', ket: 'FB' });
+  if (hotelData.t_ro > 0) opts.push({ label: 'Triple (Room Only)', price: hotelData.t_ro, type: 'Triple', ket: 'RO' });
+  if (hotelData.t_fb > 0) opts.push({ label: 'Triple (Fullboard)', price: hotelData.t_fb, type: 'Triple', ket: 'FB' });
+  if (hotelData.q_ro > 0) opts.push({ label: 'Quad (Room Only)', price: hotelData.q_ro, type: 'Quad', ket: 'RO' });
+  if (hotelData.q_fb > 0) opts.push({ label: 'Quad (Fullboard)', price: hotelData.q_fb, type: 'Quad', ket: 'FB' });
+  if (hotelData.qt_ro > 0) opts.push({ label: 'Quint (Room Only)', price: hotelData.qt_ro, type: 'Quint', ket: 'RO' });
+  if (hotelData.qt_fb > 0) opts.push({ label: 'Quint (Fullboard)', price: hotelData.qt_fb, type: 'Quint', ket: 'FB' });
+
+  if (opts.length === 0) {
+    roomContainer.innerHTML = '<p class="text-xs text-red-500">Hotel ini belum memiliki harga kamar.</p>';
+    hitungTotalKeseluruhan();
+    return;
+  }
+
+  roomContainer.innerHTML = opts.map(o => `
+    <div class="flex items-center justify-between gap-2">
+      <label class="flex items-center space-x-2 text-sm flex-1">
+        <input type="checkbox" class="chk-room w-4 h-4" data-price="${o.price}" data-type="${o.type}" data-ket="${o.ket}" onchange="hitungTotalKeseluruhan()">
+        <span>${o.label} - <b>${rp(o.price)}</b>/mlm</span>
+      </label>
+      <input type="number" min="1" value="1" class="inp-qty border p-1 rounded w-16" disabled oninput="hitungTotalKeseluruhan()">
+    </div>
+  `).join('');
+
+  roomContainer.querySelectorAll('.chk-room').forEach(chk => {
+    chk.addEventListener('change', (e) => {
+      const qtyInput = e.target.closest('div').querySelector('.inp-qty');
+      qtyInput.disabled = !e.target.checked;
+      if (!e.target.checked) qtyInput.value = 1;
+      hitungTotalKeseluruhan();
+    });
+  });
+
+  hitungTotalKeseluruhan();
+}
+
+function hitungTotalKeseluruhan() {
+  let grandTotal = 0;
+  document.querySelectorAll('.segmen-box').forEach(box => {
+    const checkIn = box.querySelector('.seg-checkin').value;
+    const checkOut = box.querySelector('.seg-checkout').value;
+    let hari = 0;
+    if (checkIn && checkOut) hari = Math.max(0, Math.ceil((new Date(checkOut) - new Date(checkIn)) / (1000 * 60 * 60 * 24)));
+
+    box.querySelectorAll('.chk-room').forEach(chk => {
+      if (chk.checked) {
+        const price = parseFloat(chk.getAttribute('data-price'));
+        const qty = parseInt(chk.closest('div').querySelector('.inp-qty').value) || 1;
+        grandTotal += (price * qty * hari);
+      }
+    });
+  });
+  document.getElementById('inpTotal').value = grandTotal;
+}
+
+document.getElementById('btnTabBaru').addEventListener('click', initNewOrderForm);
+
+/* =========================================================
+   SUBMIT PEMESANAN BARU
+   ========================================================= */
+document.getElementById('formBooking').onsubmit = async e => {
+  e.preventDefault();
+  const btn = e.target.querySelector('button[type="submit"]');
+  btn.innerHTML = 'Memproses...'; btn.disabled = true;
+
+  const custId = localStorage.getItem('cust_id');
+  const f = e.target;
+  
+  let itineraryText = [];
+  let totalKamarFisik = 0;
+  let valid = true;
+
+  const segmenBoxes = document.querySelectorAll('.segmen-box');
+  segmenBoxes.forEach((box, index) => {
+    const kota = box.querySelector('.seg-kota').value;
+    const selHotel = box.querySelector('.seg-hotel');
+    if(!selHotel.value) { valid = false; return; }
+    
+    const hotelName = selHotel.options[selHotel.selectedIndex].text;
+    const checkIn = box.querySelector('.seg-checkin').value;
+    const checkOut = box.querySelector('.seg-checkout').value;
+
+    let roomDetails = [];
+    box.querySelectorAll('.chk-room').forEach(chk => {
+      if (chk.checked) {
+        const type = chk.getAttribute('data-type');
+        const ket = chk.getAttribute('data-ket');
+        const qty = chk.closest('div').querySelector('.inp-qty').value;
+        roomDetails.push(`${qty}x ${type} (${ket})`);
+        totalKamarFisik += parseInt(qty);
+      }
+    });
+
+    if (roomDetails.length > 0) {
+      itineraryText.push(`[${kota}] ${hotelName} (${checkIn} s/d ${checkOut}): ${roomDetails.join(', ')}`);
+    }
+  });
+
+  if (!valid || itineraryText.length === 0) {
+    alert("Pastikan semua segmen perjalanan telah diisi hotel dan kamarnya.");
+    btn.innerHTML = 'Kirim Pesanan ke Admin'; btn.disabled = false; return;
+  }
+
+  const kodeBooking = 'BK' + Date.now().toString().slice(-6);
+  const grandTotal = f.total.value;
+
+  await api.post('Bookings', 'insert', {
+    id: uuid(), kode_booking: kodeBooking, customer_id: custId, broker_id: '',
+    kota: 'Multi-Kota', tipe_kamar: 'Campuran', rincian_kamar: itineraryText.join(' | '), hotel_nama: 'Multi-Hotel',
+    check_in: segmenBoxes[0].querySelector('.seg-checkin').value, check_out: segmenBoxes[segmenBoxes.length-1].querySelector('.seg-checkout').value,
+    jumlah_kamar: totalKamarFisik, jumlah_tamu: 1, total: grandTotal, status: 'pending', catatan: '', broker_paid: false, created_at: new Date().toISOString()
+  });
+
+  const namaCust = localStorage.getItem('cust_nama');
+  const telpCust = localStorage.getItem('cust_telp');
+
+  let waText = `Halo Admin, saya *${namaCust}* (${telpCust}) ingin memesan hotel.\n\n*Kode Booking:* ${kodeBooking}\n\n*Rincian Perjalanan:*\n`;
+  itineraryText.forEach(it => { waText += `- ${it}\n`; });
+  waText += `\n*Total Estimasi:* ${rp(grandTotal)}\n\nMohon cek ketersediaan kamarnya. Terima kasih.`;
+
+  window.open(`https://wa.me/${ADMIN_WA}?text=${encodeURIComponent(waText)}`, '_blank');
+
+  alert(`Pesanan ${kodeBooking} berhasil dibuat! Anda akan diarahkan ke WhatsApp Admin.`);
+  switchTab('pesanan');
+  loadMyOrders();
+  
+  document.getElementById('itineraryContainer').innerHTML = '';
+  f.reset();
+  segmenCount = 0;
+  btn.innerHTML = 'Kirim Pesanan ke Admin'; btn.disabled = false;
+};
+</script>
+</body>
+</html>
