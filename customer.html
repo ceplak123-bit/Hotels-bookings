@@ -29,7 +29,8 @@
         </div>
         <div>
           <label class="text-sm font-bold text-gray-600 mb-1 block">Nomor WhatsApp</label>
-          <input type="tel" id="loginTelepon" placeholder="Cth: 08123456789" class="border p-3 rounded w-full" required>
+          <input type="tel" id="loginTelepon" placeholder="+62 812... atau +966 50..." class="border p-3 rounded w-full" required>
+          <p class="text-xs text-red-500 mt-1">*Wajib gunakan kode negara (cth: +62 atau +966)</p>
         </div>
         <button type="submit" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-3 rounded-lg shadow">Masuk</button>
       </form>
@@ -73,9 +74,12 @@
         <div id="guestInfoContainer" class="hidden-section bg-blue-50 p-4 rounded-lg border border-blue-200">
           <h4 class="font-bold text-blue-800 mb-3">Data Diri Anda</h4>
           <div class="space-y-3">
-            <input type="text" id="guestNama" placeholder="Nama Lengkap" class="border p-3 rounded w-full">
-            <input type="tel" id="guestTelepon" placeholder="Nomor WhatsApp" class="border p-3 rounded w-full">
-            <input type="email" id="guestEmail" placeholder="Email" class="border p-3 rounded w-full">
+            <input type="text" id="guestNama" placeholder="Nama Lengkap" class="border p-3 rounded w-full" required>
+            <div>
+              <input type="tel" id="guestTelepon" placeholder="+62 812... atau +966 50..." class="border p-3 rounded w-full" required>
+              <p class="text-xs text-red-500 mt-1">*Wajib gunakan kode negara (cth: +62 atau +966)</p>
+            </div>
+            <input type="email" id="guestEmail" placeholder="Email" class="border p-3 rounded w-full" required>
           </div>
         </div>
 
@@ -100,12 +104,15 @@
 
 <script>
 const API_URL = 'https://script.google.com/macros/s/AKfycbwZwSt2tVt6F5tkAvPcqpQ8hlkU3hIAC9SONWFmrk-GIS8_E8swH5GbPfv8kp-TzVzWgg/exec';
-const ADMIN_WA = '62881011154839';
+const ADMIN_WA = '62881011154839'; // Nomor Admin (sudah menggunakan kode negara 62)
 
 const rp = n => 'Rp ' + (Number(n)||0).toLocaleString('id-ID');
 const fmtDate = d => d ? new Date(d).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}) : '-';
 const uuid = () => crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).substring(2);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+// FUNGSI BARU: Membersihkan nomor HP agar hanya berisi angka (untuk link WA)
+const formatPhone = (phone) => String(phone || '').replace(/[^0-9]/g, '');
 
 const api = {
   get: async (sheetName) => {
@@ -137,9 +144,10 @@ document.getElementById('loginForm').onsubmit = async e => {
   const telepon = document.getElementById('loginTelepon').value.trim();
 
   const customers = await api.get('Customers');
+  // Bandingkan nama dan nomor HP (dibersihkan menjadi hanya angka)
   const user = customers.find(c => 
     String(c.nama).toLowerCase() === nama.toLowerCase() && 
-    String(c.telepon).replace(/[^0-9]/g, '') === telepon.replace(/[^0-9]/g, '')
+    formatPhone(c.telepon) === formatPhone(telepon)
   );
 
   if (user) {
@@ -190,7 +198,7 @@ function switchTab(tab) {
     document.getElementById('tabBaru').classList.remove('hidden-section');
     document.getElementById('btnTabBaru').className = "flex-1 bg-slate-800 text-white font-bold py-3 rounded-lg shadow";
     document.getElementById('btnTabPesanan').className = "flex-1 bg-white text-gray-600 font-bold py-3 rounded-lg shadow hover:bg-gray-50";
-    initNewOrderForm(); // Pastikan form terinisialisasi
+    initNewOrderForm();
   }
 }
 
@@ -276,7 +284,7 @@ async function loadMyOrders() {
         ${(b.status === 'invoiced' && inv && totalPaid < Number(inv.total)) ? `
           <div class="mt-4 p-3 bg-blue-50 rounded border border-blue-200 text-sm text-blue-800 flex justify-between items-center flex-wrap gap-2">
             <span>💡 <b>Kamar Tersedia!</b> Silakan lakukan pembayaran.</span>
-            <a href="https://wa.me/${ADMIN_WA}?text=Halo%20Admin,%20saya%20ingin%20membayar%20invoice%20${inv.no_invoice}" target="_blank" class="bg-slate-800 text-white px-4 py-2 rounded font-bold text-xs">Konfirmasi Pembayaran (WA)</a>
+            <a href="https://wa.me/${formatPhone(ADMIN_WA)}?text=Halo%20Admin,%20saya%20ingin%20membayar%20invoice%20${inv.no_invoice}" target="_blank" class="bg-slate-800 text-white px-4 py-2 rounded font-bold text-xs">Konfirmasi Pembayaran (WA)</a>
           </div>
         ` : ''}
       </div>
@@ -331,12 +339,10 @@ function tambahSegmen() {
       </div>
       <div>
         <label class="text-xs text-gray-500 font-bold mb-1 block">Check In</label>
-        <!-- DITAMBAHKAN REQUIRED -->
         <input type="date" class="border p-2 rounded w-full seg-checkin" required onchange="filterHotels('${id}')">
       </div>
       <div>
         <label class="text-xs text-gray-500 font-bold mb-1 block">Check Out</label>
-        <!-- DITAMBAHKAN REQUIRED -->
         <input type="date" class="border p-2 rounded w-full seg-checkout" required onchange="filterHotels('${id}')">
       </div>
     </div>
@@ -480,7 +486,7 @@ document.getElementById('formBooking').onsubmit = async e => {
     }
 
     const customers = await api.get('Customers');
-    const existing = customers.find(c => String(c.telepon).replace(/[^0-9]/g, '') === telpCust.replace(/[^0-9]/g, ''));
+    const existing = customers.find(c => formatPhone(c.telepon) === formatPhone(telpCust));
     
     if (existing) {
       customerId = existing.id;
@@ -505,10 +511,7 @@ document.getElementById('formBooking').onsubmit = async e => {
     const checkIn = box.querySelector('.seg-checkin').value;
     const checkOut = box.querySelector('.seg-checkout').value;
 
-    if(!selHotel.value || !checkIn || !checkOut) { 
-      valid = false; 
-      return; 
-    }
+    if(!selHotel.value || !checkIn || !checkOut) { valid = false; return; }
     
     const hotelName = selHotel.options[selHotel.selectedIndex].text;
 
@@ -547,7 +550,7 @@ document.getElementById('formBooking').onsubmit = async e => {
   itineraryText.forEach(it => { waText += `- ${it}\n`; });
   waText += `\n*Total Estimasi:* ${rp(grandTotal)}\n\nMohon cek ketersediaan kamarnya. Terima kasih.`;
 
-  window.open(`https://wa.me/${ADMIN_WA}?text=${encodeURIComponent(waText)}`, '_blank');
+  window.open(`https://wa.me/${formatPhone(ADMIN_WA)}?text=${encodeURIComponent(waText)}`, '_blank');
 
   alert(`Pesanan ${kodeBooking} berhasil dibuat! Anda akan diarahkan ke WhatsApp Admin.`);
   

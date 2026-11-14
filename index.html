@@ -29,7 +29,6 @@
 <!-- ================= APP ================= -->
 <div id="app" class="hidden flex flex-col md:flex-row min-h-screen">
   
-  <!-- TOP BAR MOBILE -->
   <div class="md:hidden bg-slate-800 text-white p-3 flex justify-between items-center sticky top-0 z-50">
     <img src="logo.png" alt="Hamra Booking" class="h-8 bg-white p-1 rounded object-contain">
     <button onclick="toggleSidebar()" class="p-2 border border-slate-600 rounded">
@@ -37,7 +36,6 @@
     </button>
   </div>
 
-  <!-- SIDEBAR -->
   <aside id="sidebar" class="bg-slate-800 text-white w-64 p-4 flex flex-col h-screen fixed md:sticky top-0 z-50 transform -translate-x-full md:translate-x-0">
     <div class="hidden md:flex justify-center mb-6 bg-white p-2 rounded-lg">
       <img src="logo.png" alt="Hamra Booking" class="h-16 object-contain">
@@ -114,7 +112,10 @@
         <h1 class="text-2xl font-bold mb-4">Broker Hotel</h1>
         <form id="formBroker" class="bg-white p-4 rounded shadow mb-6 grid grid-cols-1 md:grid-cols-2 gap-3">
           <input name="nama" placeholder="Nama broker" class="border p-2 rounded w-full" required>
-          <input name="kontak" placeholder="Kontak / telepon (Cth: 62812...)" class="border p-2 rounded w-full">
+          <div class="flex flex-col">
+            <input name="kontak" placeholder="Kontak / telepon (Cth: +62... atau +966...)" class="border p-2 rounded w-full" required>
+            <p class="text-xs text-red-500 mt-1">*Wajib gunakan kode negara (cth: +62, +966)</p>
+          </div>
           <button class="md:col-span-2 bg-blue-600 hover:bg-blue-700 text-white rounded p-2 font-medium">Tambah Broker</button>
         </form>
         <div id="tableBrokers" class="bg-white rounded shadow p-4 overflow-x-auto"></div>
@@ -147,7 +148,10 @@
         <h1 class="text-2xl font-bold mb-4">Customer</h1>
         <form id="formCustomer" class="bg-white p-4 rounded shadow mb-6 grid grid-cols-1 md:grid-cols-3 gap-3">
           <input name="nama" placeholder="Nama customer" class="border p-2 rounded w-full" required>
-          <input name="telepon" placeholder="Telepon" class="border p-2 rounded w-full">
+          <div class="flex flex-col">
+            <input name="telepon" placeholder="Telepon (Cth: +62... atau +966...)" class="border p-2 rounded w-full" required>
+            <p class="text-xs text-red-500 mt-1">*Wajib gunakan kode negara</p>
+          </div>
           <input name="email" type="email" placeholder="Email" class="border p-2 rounded w-full">
           <button class="md:col-span-3 bg-blue-600 hover:bg-blue-700 text-white rounded p-2 font-medium">Tambah Customer</button>
         </form>
@@ -171,6 +175,7 @@ const fmtDate = d => {
 const today = () => new Date().toISOString().slice(0,10);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const uuid = () => crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).substring(2);
+const formatPhone = (phone) => String(phone || '').replace(/[^0-9]/g, '');
 
 const api = {
   get: async (sheetName) => {
@@ -324,7 +329,6 @@ async function loadBookings() {
     return; 
   }
   
-  // Sorting aman
   try { bookings.sort((a,b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)); } catch(e){}
 
   let html = '';
@@ -340,13 +344,13 @@ async function loadBookings() {
       
       let btnCekBroker = '';
       if (brk.kontak) {
-        const waNumber = String(brk.kontak).replace(/[^0-9]/g, '');
+        const waNumber = formatPhone(brk.kontak);
         const waText = encodeURIComponent(`Halo ${brk.nama}, tolong cek ketersediaan kamar untuk pesanan ${b.kode_booking}:\n\n${String(b.rincian_kamar || '-').replace(/ \| /g, '\n')}\n\nTotal: ${rp(b.total)}`);
         btnCekBroker = `<a href="https://wa.me/${waNumber}?text=${waText}" target="_blank" class="bg-teal-500 hover:bg-teal-600 text-white px-3 py-1.5 rounded text-xs font-bold shadow flex items-center gap-1"><span>📞</span> Cek Kamar ke Broker</a>`;
       }
       
       const waCustText = encodeURIComponent(`Halo Kak ${cust.nama || 'Pelanggan'}, kami menginformasikan bahwa kamar untuk pesanan Anda dengan kode *${b.kode_booking}* sudah TERSEDIA dan terkonfirmasi.\n\nBerikut rinciannya:\n${String(b.rincian_kamar || '-').replace(/ \| /g, '\n')}\n\nTotal Tagihan: *${rp(b.total)}*\n\nSilakan balas pesan ini jika Anda sudah siap melakukan pembayaran. Terima kasih.`);
-      const btnKonfirmasiCust = `<a href="https://wa.me/${cust.telepon ? String(cust.telepon).replace(/[^0-9]/g, '') : ''}?text=${waCustText}" target="_blank" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1.5 rounded text-xs font-bold shadow flex items-center gap-1"><span>💬</span> Konfirmasi ke Customer</a>`;
+      const btnKonfirmasiCust = `<a href="https://wa.me/${formatPhone(cust.telepon)}?text=${waCustText}" target="_blank" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1.5 rounded text-xs font-bold shadow flex items-center gap-1"><span>💬</span> Konfirmasi ke Customer</a>`;
 
       html += `
       <div class="bg-white rounded-lg shadow-md border-l-4 ${b.status==='paid'?'border-green-500':'border-yellow-400'} p-4 mb-4">
