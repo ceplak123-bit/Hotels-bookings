@@ -67,19 +67,21 @@
       </div>
     </div>
 
+    <!-- FORM PESANAN BARU -->
     <div id="tabBaru" class="hidden-section">
       <form id="formBooking" class="bg-white p-6 rounded-xl shadow-lg space-y-6">
         <h3 class="text-xl font-bold text-slate-800 border-b pb-2">Form Pemesanan Baru</h3>
         
+        <!-- INPUT DATA DIRI (Hanya muncul jika Guest. Required dihapus agar tidak memblokir form saat login) -->
         <div id="guestInfoContainer" class="hidden-section bg-blue-50 p-4 rounded-lg border border-blue-200">
           <h4 class="font-bold text-blue-800 mb-3">Data Diri Anda</h4>
           <div class="space-y-3">
-            <input type="text" id="guestNama" placeholder="Nama Lengkap" class="border p-3 rounded w-full" required>
+            <input type="text" id="guestNama" placeholder="Nama Lengkap" class="border p-3 rounded w-full">
             <div>
-              <input type="tel" id="guestTelepon" placeholder="+62 812... atau +966 50..." class="border p-3 rounded w-full" required>
+              <input type="tel" id="guestTelepon" placeholder="+62 812... atau +966 50..." class="border p-3 rounded w-full">
               <p class="text-xs text-red-500 mt-1">*Wajib gunakan kode negara (cth: +62 atau +966)</p>
             </div>
-            <input type="email" id="guestEmail" placeholder="Email" class="border p-3 rounded w-full" required>
+            <input type="email" id="guestEmail" placeholder="Email" class="border p-3 rounded w-full">
           </div>
         </div>
 
@@ -104,25 +106,39 @@
 
 <script>
 const API_URL = 'https://script.google.com/macros/s/AKfycbwZwSt2tVt6F5tkAvPcqpQ8hlkU3hIAC9SONWFmrk-GIS8_E8swH5GbPfv8kp-TzVzWgg/exec';
-const ADMIN_WA = '62881011154839'; // Nomor Admin (sudah menggunakan kode negara 62)
+const ADMIN_WA = '62881011154839';
 
 const rp = n => 'Rp ' + (Number(n)||0).toLocaleString('id-ID');
 const fmtDate = d => d ? new Date(d).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}) : '-';
 const uuid = () => crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).substring(2);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-
-// FUNGSI BARU: Membersihkan nomor HP agar hanya berisi angka (untuk link WA)
 const formatPhone = (phone) => String(phone || '').replace(/[^0-9]/g, '');
 
 const api = {
   get: async (sheetName) => {
-    const res = await fetch(`${API_URL}?action=read&sheet=${sheetName}`);
-    const json = await res.json();
-    return json.data || [];
+    try {
+      const res = await fetch(`${API_URL}?action=read&sheet=${sheetName}`);
+      const json = await res.json();
+      return json.data || [];
+    } catch (e) {
+      console.error("GET Error:", e);
+      return [];
+    }
   },
   post: async (sheetName, action, data) => {
-    const res = await fetch(API_URL, { method: 'POST', body: JSON.stringify({ sheet: sheetName, action: action, data: data }), headers: { 'Content-Type': 'text/plain;charset=utf-8' } });
-    return await res.json();
+    try {
+      const res = await fetch(API_URL, { 
+        method: 'POST', 
+        body: JSON.stringify({ sheet: sheetName, action: action, data: data }), 
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' } 
+      });
+      const json = await res.json();
+      if (json.status === 'error') throw new Error(json.message);
+      return json;
+    } catch (e) {
+      alert("Gagal menyimpan data ke server: " + e.message);
+      return null;
+    }
   }
 };
 
@@ -144,7 +160,6 @@ document.getElementById('loginForm').onsubmit = async e => {
   const telepon = document.getElementById('loginTelepon').value.trim();
 
   const customers = await api.get('Customers');
-  // Bandingkan nama dan nomor HP (dibersihkan menjadi hanya angka)
   const user = customers.find(c => 
     String(c.nama).toLowerCase() === nama.toLowerCase() && 
     formatPhone(c.telepon) === formatPhone(telepon)
@@ -170,6 +185,12 @@ function showGuestBooking() {
   document.getElementById('btnTabPesanan').classList.add('hidden-section');
   document.getElementById('txtNamaCustomer').textContent = "Tamu (Guest)";
   document.getElementById('guestInfoContainer').classList.remove('hidden-section');
+  
+  // Aktifkan required hanya untuk guest
+  document.getElementById('guestNama').required = true;
+  document.getElementById('guestTelepon').required = true;
+  document.getElementById('guestEmail').required = true;
+  
   switchTab('baru');
 }
 
@@ -178,6 +199,12 @@ function showDashboard(nama) {
   document.getElementById('dashboardSection').classList.remove('hidden-section');
   document.getElementById('txtNamaCustomer').textContent = nama;
   document.getElementById('guestInfoContainer').classList.add('hidden-section');
+  
+  // Matikan required agar tidak memblokir form saat login
+  document.getElementById('guestNama').required = false;
+  document.getElementById('guestTelepon').required = false;
+  document.getElementById('guestEmail').required = false;
+  
   document.getElementById('btnTabPesanan').classList.remove('hidden-section');
   loadMyOrders();
 }
@@ -467,6 +494,18 @@ function hitungTotalKeseluruhan() {
 document.getElementById('formBooking').onsubmit = async e => {
   e.preventDefault();
   const btn = e.target.querySelector('button[type="submit"]');
+  
+  // Jika guest, validasi manual karena required di HTML sudah dimatikan
+  if (isGuestMode) {
+    const gn = document.getElementById('guestNama').value.trim();
+    const gt = document.getElementById('guestTelepon').value.trim();
+    const ge = document.getElementById('guestEmail').value.trim();
+    if (!gn || !gt || !ge) {
+      alert("Mohon lengkapi Nama, WhatsApp, dan Email Anda.");
+      return;
+    }
+  }
+
   btn.innerHTML = 'Memproses...'; btn.disabled = true;
 
   const f = e.target;
@@ -479,11 +518,6 @@ document.getElementById('formBooking').onsubmit = async e => {
     namaCust = document.getElementById('guestNama').value.trim();
     telpCust = document.getElementById('guestTelepon').value.trim();
     emailCust = document.getElementById('guestEmail').value.trim();
-
-    if (!namaCust || !telpCust || !emailCust) {
-      alert("Mohon lengkapi Nama, WhatsApp, dan Email Anda.");
-      btn.innerHTML = 'Kirim Pesanan ke Admin'; btn.disabled = false; return;
-    }
 
     const customers = await api.get('Customers');
     const existing = customers.find(c => formatPhone(c.telepon) === formatPhone(telpCust));
@@ -539,34 +573,43 @@ document.getElementById('formBooking').onsubmit = async e => {
   const kodeBooking = 'BK' + Date.now().toString().slice(-6);
   const grandTotal = f.total.value;
 
-  await api.post('Bookings', 'insert', {
+  // Simpan ke database
+  const res = await api.post('Bookings', 'insert', {
     id: uuid(), kode_booking: kodeBooking, customer_id: customerId, broker_id: '',
     kota: 'Multi-Kota', tipe_kamar: 'Campuran', rincian_kamar: itineraryText.join(' | '), hotel_nama: 'Multi-Hotel',
     check_in: segmenBoxes[0].querySelector('.seg-checkin').value, check_out: segmenBoxes[segmenBoxes.length-1].querySelector('.seg-checkout').value,
     jumlah_kamar: totalKamarFisik, jumlah_tamu: 1, total: grandTotal, status: 'pending', catatan: '', broker_paid: false, created_at: new Date().toISOString()
   });
 
-  let waText = `Halo Admin, saya *${namaCust}* (${telpCust}) ingin memesan hotel.\n\n*Kode Booking:* ${kodeBooking}\n\n*Rincian Perjalanan:*\n`;
-  itineraryText.forEach(it => { waText += `- ${it}\n`; });
-  waText += `\n*Total Estimasi:* ${rp(grandTotal)}\n\nMohon cek ketersediaan kamarnya. Terima kasih.`;
+  if (res && res.status === 'success') {
+    let waText = `Halo Admin, saya *${namaCust}* (${telpCust}) ingin memesan hotel.\n\n*Kode Booking:* ${kodeBooking}\n\n*Rincian Perjalanan:*\n`;
+    itineraryText.forEach(it => { waText += `- ${it}\n`; });
+    waText += `\n*Total Estimasi:* ${rp(grandTotal)}\n\nMohon cek ketersediaan kamarnya. Terima kasih.`;
 
-  window.open(`https://wa.me/${formatPhone(ADMIN_WA)}?text=${encodeURIComponent(waText)}`, '_blank');
+    window.open(`https://wa.me/${formatPhone(ADMIN_WA)}?text=${encodeURIComponent(waText)}`, '_blank');
 
-  alert(`Pesanan ${kodeBooking} berhasil dibuat! Anda akan diarahkan ke WhatsApp Admin.`);
-  
-  if (isGuestMode) {
-    isGuestMode = false;
-    document.getElementById('dashboardSection').classList.add('hidden-section');
-    document.getElementById('loginSection').classList.remove('hidden-section');
+    alert(`Pesanan ${kodeBooking} berhasil dibuat! Anda akan diarahkan ke WhatsApp Admin.`);
+    
+    if (isGuestMode) {
+      isGuestMode = false;
+      document.getElementById('dashboardSection').classList.add('hidden-section');
+      document.getElementById('loginSection').classList.remove('hidden-section');
+      document.getElementById('guestNama').required = false;
+      document.getElementById('guestTelepon').required = false;
+      document.getElementById('guestEmail').required = false;
+    } else {
+      switchTab('pesanan');
+      loadMyOrders();
+    }
+    
+    document.getElementById('itineraryContainer').innerHTML = '';
+    f.reset();
+    segmenCount = 0;
+    btn.innerHTML = 'Kirim Pesanan ke Admin'; btn.disabled = false;
   } else {
-    switchTab('pesanan');
-    loadMyOrders();
+    // Jika gagal, kembalikan tombol
+    btn.innerHTML = 'Kirim Pesanan ke Admin'; btn.disabled = false;
   }
-  
-  document.getElementById('itineraryContainer').innerHTML = '';
-  f.reset();
-  segmenCount = 0;
-  btn.innerHTML = 'Kirim Pesanan ke Admin'; btn.disabled = false;
 };
 </script>
 </body>
